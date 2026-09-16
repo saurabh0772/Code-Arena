@@ -1,16 +1,38 @@
 services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     ports:
       - "5000:5000"
     environment:
       - NODE_ENV=development
       - PORT=5000
       - MONGODB_URI=mongodb://mongodb:27017/codearena
+      - JWT_SECRET=codearena-dev-secret-key-32charsmin!
+      - CORS_ORIGIN=http://localhost:5173,http://localhost:80,http://127.0.0.1:5173
+    volumes:
+      # Trusted infrastructure boundary: Only the execution engine backend has Docker socket access
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
   mongodb:
     image: mongo:7.0
@@ -20,6 +42,12 @@ services:
       - MONGO_INITDB_DATABASE=codearena
     volumes:
       - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
 volumes:
   mongodb_data:

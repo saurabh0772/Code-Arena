@@ -1,0 +1,20 @@
+FROM alpine:3.20
+
+# Install required build tools and language runtimes (g++, python3, nodejs)
+RUN apk add --no-cache \
+    g++ \
+    libstdc++ \
+    python3 \
+    nodejs
+
+# Create non-root sandbox user with UID/GID 1000
+RUN addgroup -g 1000 sandbox && \
+    adduser -u 1000 -G sandbox -D -s /bin/sh sandbox
+
+# Set up isolated workspace
+RUN mkdir -p /workspace && \
+    chown -R sandbox:sandbox /workspace && \
+    chmod 700 /workspace
+
+WORKDIR /workspace
+USER sandbox

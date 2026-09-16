@@ -1,0 +1,16 @@
+{
+  "name": "codearena",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CodeArena — Online Judge & Secure Code Execution Platform",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "start:backend": "npm --prefix backend start",
+    "test": "npm --prefix backend test && npm --prefix execution-engine test && npm --prefix frontend test",
+    "test:backend": "npm --prefix backend test",
+    "test:engine": "npm --prefix execution-engine test",
+    "test:frontend": "npm --prefix frontend test"
+  }
+}
