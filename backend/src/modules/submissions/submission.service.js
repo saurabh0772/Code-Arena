@@ -1,5 +1,6 @@
 const Submission = require('./submission.model');
 const Problem = require('../problems/problem.model');
+const TestCase = require('../test-cases/test-case.model');
 const AppError = require('../../utils/app-error');
 const { executeSubmission } = require('./submission-execution.service');
 
@@ -19,6 +20,20 @@ const createSubmission = async (data, authenticatedUser) => {
 
   if (!problem.isActive) {
     throw new AppError('Cannot submit to an inactive problem', 400);
+  }
+
+  // Defensive check: problem must have at least one active test case
+  const activeTestCasesCount = await TestCase.countDocuments({
+    problemId: problem._id,
+    isActive: true
+  });
+
+  if (activeTestCasesCount === 0) {
+    throw new AppError(
+      'This problem has no active test cases and is not ready for submissions.',
+      422,
+      'PROBLEM_NOT_READY'
+    );
   }
 
   // Enforce server-controlled fields & authenticated user identity

@@ -19,7 +19,7 @@ services:
       - NODE_ENV=development
       - PORT=5000
       - MONGODB_URI=mongodb://mongodb:27017/codearena
-      - JWT_SECRET=codearena-dev-secret-key-32charsmin!
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set}
       - CORS_ORIGIN=http://localhost:5173,http://localhost:80,http://127.0.0.1:5173
       - CODEARENA_WORKSPACE_BASE=/tmp/codearena-workspaces
     volumes:

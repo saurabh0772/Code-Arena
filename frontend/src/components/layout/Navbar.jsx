@@ -17,7 +17,8 @@ export function Navbar() {
 
   const navLinks = [
     { name: 'Problems', path: '/problems' },
-    { name: 'Submissions', path: '/submissions' }
+    { name: 'Submissions', path: '/submissions' },
+    ...(user?.role === 'ADMIN' ? [{ name: 'Admin Dashboard', path: '/admin' }] : [])
   ];
 
   return (

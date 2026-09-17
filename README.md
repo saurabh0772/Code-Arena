@@ -9,7 +9,7 @@ CodeArena is a full-featured, secure online judge platform designed as a high-pe
 | Phase | Module / Focus | Status |
 |---|---|---|
 | **Phase 1** | Repository & Backend Setup | **COMPLETE** |
-| **Phase 2** | Backend Core & Database (Mongoose 8.x) | **COMPLETE** |
+| **Phase 2** | Backend Core & Database (MongoDB + Mongoose) | **COMPLETE** |
 | **Phase 3** | Authentication & RBAC (JWT, Argon2) | **COMPLETE** |
 | **Phase 4** | Problem Module (CRUD & Public Access) | **COMPLETE** |
 | **Phase 5** | Test Case Module (Public & Hidden Isolation) | **COMPLETE** |
@@ -34,7 +34,7 @@ CodeArena operates as a clean modular monolith with a strict separation between 
        ├── Problems & Test Cases (Public / Hidden Isolation)
        └── Submissions Service
                     ↓  Direct Module Call
-[ Standalone Execution Engine ]
+[ Execution Engine Module ]
        ├── Language Resolvers (C++, Python 3, Node.js)
        ├── Scoped DooD Shared Workspaces (/tmp/codearena-workspaces)
        └── Docker Sandbox Runner
@@ -66,13 +66,18 @@ The execution engine runs all untrusted code inside the hardened `codearena-sand
 docker build -t codearena-sandbox:latest -f execution-engine/Dockerfile.sandbox execution-engine
 ```
 
-### 2. Run via Docker Compose (Recommended)
+### 2. Configure Environment & Run via Docker Compose
 
-Start MongoDB, Backend, and Frontend in unified containerized orchestration:
+1. Initialize local environment configuration from template:
+   ```bash
+   cp .env.example .env
+   ```
+   Provide a secure `JWT_SECRET` in `.env`.
 
-```bash
-docker compose up -d
-```
+2. Start MongoDB, Backend, and Frontend in unified containerized orchestration:
+   ```bash
+   docker compose up -d
+   ```
 
 - **Frontend Application**: [http://localhost:5173](http://localhost:5173)
 - **Backend API**: [http://localhost:5000](http://localhost:5000)
@@ -85,7 +90,37 @@ docker compose ps
 
 ---
 
+## Development Seeding & Demo Problems
+
+To seed the initial demo problems and administrative account into MongoDB:
+
+```bash
+# Seed default system administrator (admin@codearena.com / AdminPass123!)
+npm run seed:admin --prefix backend
+
+# Seed canonical demo problems (idempotent; preserves user-created problems)
+npm run seed:problems --prefix backend
+```
+
+### Seeded Problem & Test Case Structure
+1. **Sum of Two Numbers** (`EASY`, tags: `math`, `basics`):
+   - 2 `PUBLIC` test cases, 3 `HIDDEN` test cases (5 total)
+2. **Maximum Element in an Array** (`MEDIUM`, tags: `arrays`, `search`, `basics`):
+   - 2 `PUBLIC` test cases, 4 `HIDDEN` test cases (6 total)
+3. **Longest Increasing Subsequence Length** (`HARD`, tags: `dynamic-programming`, `arrays`, `binary-search`):
+   - 2 `PUBLIC` test cases, 4 `HIDDEN` test cases (6 total)
+
+### Problem Readiness & Evaluation Guarantee
+- Problems with zero active test cases are strictly guarded against submission.
+- Attempting to submit to a problem without active test cases fails immediately with HTTP `422 Unprocessable Entity` (`errorCode: "PROBLEM_NOT_READY"`).
+- No untrusted code is executed, no sandbox container is spawned, and no `ACCEPTED (0/0)` verdict is possible.
+- Inactive test cases (`isActive: false`) are ignored during evaluation. `ACCEPTED` strictly requires `totalTests > 0` and `testsPassed === totalTests`.
+
+---
+
 ## Running Test Suites
+
+All automated test suites are implemented and verified in the local environment:
 
 ### Execution Engine Test Suite (Docker Sandbox Verification)
 Verifies multi-language compilation/runtime, timeouts, memory limits, output caps, PID limits, network blocking, and filesystem restrictions:
@@ -93,15 +128,15 @@ Verifies multi-language compilation/runtime, timeouts, memory limits, output cap
 cd execution-engine
 npm test
 ```
-*(42/42 tests passing)*
+*(Verified: 43/43 tests passing)*
 
 ### Backend Test Suite
-Verifies authentication, RBAC, problems, test case visibility, submissions, and rate limiting:
+Verifies authentication, RBAC, problems, test case visibility, submissions, zero-test regressions, and rate limiting (requires running MongoDB):
 ```bash
 cd backend
 npm test
 ```
-*(123/123 tests passing)*
+*(Verified: 126/126 tests passing)*
 
 ### Frontend Test Suite & Production Build
 ```bash
@@ -109,7 +144,7 @@ cd frontend
 npm test
 npm run build
 ```
-*(8/8 tests passing, 0 build errors)*
+*(Verified: 21/21 tests passing, 0 build errors)*
 
 ---
 

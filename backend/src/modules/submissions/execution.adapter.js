@@ -6,7 +6,7 @@
 const path = require('path');
 const AppError = require('../../utils/app-error');
 
-// Resolves standalone execution engine package
+// Resolves execution engine module boundary
 let executionEngine;
 try {
   const executionEnginePath = path.resolve(__dirname, '../../../../execution-engine/src');

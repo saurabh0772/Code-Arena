@@ -6,6 +6,7 @@
 const Submission = require('./submission.model');
 const TestCase = require('../test-cases/test-case.model');
 const executionAdapter = require('./execution.adapter');
+const AppError = require('../../utils/app-error');
 
 const SUPPORTED_LANGUAGES = ['CPP', 'PYTHON', 'JAVASCRIPT'];
 
@@ -38,14 +39,18 @@ async function executeSubmission(submissionId) {
     isActive: true
   }).sort({ order: 1 });
 
-  // If problem has no test cases, mark as COMPLETED
+  // Defensive validation: problem with no test cases must never be ACCEPTED
   if (!testCases || testCases.length === 0) {
     submission.status = 'COMPLETED';
-    submission.verdict = 'ACCEPTED';
+    submission.verdict = 'RUNTIME_ERROR';
     submission.testsPassed = 0;
     submission.totalTests = 0;
     await submission.save();
-    return;
+    throw new AppError(
+      'This problem has no active test cases and is not ready for submissions.',
+      422,
+      'PROBLEM_NOT_READY'
+    );
   }
 
   // Transition to RUNNING state

@@ -16,6 +16,7 @@ const { connectDB, disconnectDB } = require('../src/config/database');
 const User = require('../src/modules/users/user.model');
 const Problem = require('../src/modules/problems/problem.model');
 const Submission = require('../src/modules/submissions/submission.model');
+const TestCase = require('../src/modules/test-cases/test-case.model');
 const { hashPassword } = require('../src/utils/password');
 
 describe('Phase 6 Submission Module Test Suite', () => {
@@ -38,6 +39,7 @@ describe('Phase 6 Submission Module Test Suite', () => {
       await User.deleteMany({});
       await Problem.deleteMany({});
       await Submission.deleteMany({});
+      await TestCase.deleteMany({});
       await disconnectDB();
     }
   });
@@ -46,6 +48,7 @@ describe('Phase 6 Submission Module Test Suite', () => {
     await User.deleteMany({});
     await Problem.deleteMany({});
     await Submission.deleteMany({});
+    await TestCase.deleteMany({});
 
     const passwordHash = await hashPassword('Password123!');
 
@@ -116,6 +119,15 @@ describe('Phase 6 Submission Module Test Suite', () => {
       authorId: adminUser._id,
       isActive: false
     });
+
+    await TestCase.create({
+      problemId: activeProblem._id,
+      input: '1',
+      expectedOutput: '1',
+      visibility: 'PUBLIC',
+      order: 1,
+      isActive: true
+    });
   });
 
   // ==========================================
@@ -129,7 +141,7 @@ describe('Phase 6 Submission Module Test Suite', () => {
         .send({
           problemId: activeProblem._id.toString(),
           language: 'CPP',
-          sourceCode: '#include <iostream>\nint main() { return 0; }'
+          sourceCode: '#include <iostream>\nint main() { std::cout << 1; return 0; }'
         });
 
       assert.equal(res.status, 201);
@@ -139,11 +151,11 @@ describe('Phase 6 Submission Module Test Suite', () => {
       assert.equal(res.body.data.submission.userId, user1._id.toString());
       assert.equal(res.body.data.submission.problemId, activeProblem._id.toString());
       assert.equal(res.body.data.submission.language, 'CPP');
-      assert.equal(res.body.data.submission.sourceCode, '#include <iostream>\nint main() { return 0; }');
+      assert.equal(res.body.data.submission.sourceCode, '#include <iostream>\nint main() { std::cout << 1; return 0; }');
       assert.equal(res.body.data.submission.status, 'COMPLETED');
       assert.equal(res.body.data.submission.verdict, 'ACCEPTED');
-      assert.equal(res.body.data.submission.testsPassed, 0);
-      assert.equal(res.body.data.submission.totalTests, 0);
+      assert.equal(res.body.data.submission.testsPassed, 1);
+      assert.equal(res.body.data.submission.totalTests, 1);
     });
 
     it('ADMIN can also create a submission (201 Created)', async () => {
@@ -289,6 +301,114 @@ describe('Phase 6 Submission Module Test Suite', () => {
       assert.equal(res.status, 400);
       assert.match(res.body.message, /cannot exceed 64KB/i);
     });
+
+    it('Problem with zero active test cases is rejected with 422 PROBLEM_NOT_READY (no execution)', async () => {
+      const zeroTestProblem = await Problem.create({
+        title: 'Zero Test Problem',
+        description: 'Problem without any test cases',
+        difficulty: 'EASY',
+        tags: ['empty'],
+        inputFormat: 'none',
+        outputFormat: 'none',
+        constraints: 'none',
+        examples: [{ input: '0', output: '0' }],
+        authorId: adminUser._id,
+        isActive: true
+      });
+
+      const res = await request(app)
+        .post('/api/v1/submissions')
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({
+          problemId: zeroTestProblem._id.toString(),
+          language: 'CPP',
+          sourceCode: '#include <iostream>\nint main() { return 0; }'
+        });
+
+      assert.equal(res.status, 422);
+      assert.equal(res.body.success, false);
+      assert.equal(res.body.errorCode, 'PROBLEM_NOT_READY');
+      assert.match(res.body.message, /no active test cases and is not ready for submissions/i);
+
+      // Verify execution engine never ran and no submission record was created
+      const count = await Submission.countDocuments({ problemId: zeroTestProblem._id });
+      assert.equal(count, 0);
+    });
+
+    it('Problem with only inactive test cases is rejected with 422 PROBLEM_NOT_READY', async () => {
+      const inactiveTestsProblem = await Problem.create({
+        title: 'Inactive Tests Problem',
+        description: 'Problem with inactive test cases',
+        difficulty: 'MEDIUM',
+        tags: ['inactive-tests'],
+        inputFormat: 'none',
+        outputFormat: 'none',
+        constraints: 'none',
+        examples: [{ input: '0', output: '0' }],
+        authorId: adminUser._id,
+        isActive: true
+      });
+
+      // Create 3 inactive test cases
+      await TestCase.create([
+        { problemId: inactiveTestsProblem._id, input: '1', expectedOutput: '1', visibility: 'PUBLIC', order: 1, isActive: false },
+        { problemId: inactiveTestsProblem._id, input: '2', expectedOutput: '2', visibility: 'PUBLIC', order: 2, isActive: false },
+        { problemId: inactiveTestsProblem._id, input: '3', expectedOutput: '3', visibility: 'HIDDEN', order: 3, isActive: false }
+      ]);
+
+      const res = await request(app)
+        .post('/api/v1/submissions')
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({
+          problemId: inactiveTestsProblem._id.toString(),
+          language: 'PYTHON',
+          sourceCode: 'print(1)'
+        });
+
+      assert.equal(res.status, 422);
+      assert.equal(res.body.success, false);
+      assert.equal(res.body.errorCode, 'PROBLEM_NOT_READY');
+
+      const count = await Submission.countDocuments({ problemId: inactiveTestsProblem._id });
+      assert.equal(count, 0);
+    });
+
+    it('Inactive test cases do not count toward totalTests during evaluation', async () => {
+      const mixedProblem = await Problem.create({
+        title: 'Mixed Problem',
+        description: 'Problem with active and inactive test cases',
+        difficulty: 'EASY',
+        tags: ['mixed'],
+        inputFormat: 'none',
+        outputFormat: 'none',
+        constraints: 'none',
+        examples: [{ input: '1', output: '1' }],
+        authorId: adminUser._id,
+        isActive: true
+      });
+
+      // 2 active test cases, 1 inactive
+      await TestCase.create([
+        { problemId: mixedProblem._id, input: '1', expectedOutput: '1', visibility: 'PUBLIC', order: 1, isActive: true },
+        { problemId: mixedProblem._id, input: '2', expectedOutput: '1', visibility: 'HIDDEN', order: 2, isActive: true },
+        { problemId: mixedProblem._id, input: '3', expectedOutput: '999', visibility: 'HIDDEN', order: 3, isActive: false }
+      ]);
+
+      const res = await request(app)
+        .post('/api/v1/submissions')
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({
+          problemId: mixedProblem._id.toString(),
+          language: 'PYTHON',
+          sourceCode: 'print(1)'
+        });
+
+      assert.equal(res.status, 201);
+      assert.equal(res.body.data.submission.status, 'COMPLETED');
+      assert.equal(res.body.data.submission.verdict, 'ACCEPTED');
+      assert.equal(res.body.data.submission.testsPassed, 2);
+      assert.equal(res.body.data.submission.totalTests, 2); // strictly 2 active tests
+    });
   });
 
   // ==========================================
@@ -324,7 +444,7 @@ describe('Phase 6 Submission Module Test Suite', () => {
         .send({
           problemId: activeProblem._id.toString(),
           language: 'CPP',
-          sourceCode: 'int main(){ return 0; }',
+          sourceCode: '#include <iostream>\nint main() { std::cout << 1; return 0; }',
           status: 'COMPLETED',
           verdict: 'ACCEPTED',
           runtimeMs: 10,
@@ -336,8 +456,8 @@ describe('Phase 6 Submission Module Test Suite', () => {
       assert.equal(res.status, 201);
       assert.equal(res.body.data.submission.status, 'COMPLETED');
       assert.equal(res.body.data.submission.verdict, 'ACCEPTED');
-      assert.equal(res.body.data.submission.testsPassed, 0);
-      assert.equal(res.body.data.submission.totalTests, 0);
+      assert.equal(res.body.data.submission.testsPassed, 1);
+      assert.equal(res.body.data.submission.totalTests, 1);
     });
   });
 

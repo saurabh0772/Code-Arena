@@ -595,17 +595,19 @@ Infrastructure should be added based on actual requirements.
 
 ---
 
-# 31. Deployment Security Checklist
+# 31. Production Deployment Hardening Checklist
+
+The following items are production deployment hardening requirements and are intentionally kept separate from local MVP verification:
 
 - [ ] HTTPS enabled.
-- [ ] MongoDB is private.
-- [ ] Secrets are not committed.
+- [ ] MongoDB is private (isolated in internal production network / managed cluster).
+- [ ] Secrets are not committed (injected securely via production secrets manager).
 - [ ] Execution Engine is not unnecessarily public.
 - [ ] Sandbox network is restricted.
 - [ ] Containers run with minimum privileges.
-- [ ] Images are versioned.
-- [ ] Dependencies are scanned.
-- [ ] Database backups are configured.
+- [ ] Images are versioned (immutable release tags in container registry).
+- [ ] Dependencies are scanned (automated CI vulnerability scans).
+- [ ] Database backups are configured (automated snapshots and PITR).
 - [ ] Health checks are available.
 - [ ] Logs do not contain secrets.
 

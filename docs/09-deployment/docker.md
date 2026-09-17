@@ -702,17 +702,17 @@ The underlying sandbox technology should remain an implementation detail of the 
 
 # 40. Docker Checklist
 
-### Application Containers
+### Application Containers (Local MVP Verified vs. Production Deployment)
 
 - [x] Trusted base image.
-- [x] Versioned images.
+- [ ] Versioned images (scheduled for future production deployment pipeline; local MVP uses latest tag).
 - [x] Minimal dependencies.
-- [x] No secrets in image.
+- [x] No secrets in image (runtime injection via untracked .env).
 - [x] `.dockerignore` configured.
 - [x] Non-root where practical.
 - [x] Health checks available.
 
-### Sandbox Containers
+### Sandbox Containers (Local MVP Verified)
 
 - [x] Fresh container per submission.
 - [x] Network disabled.

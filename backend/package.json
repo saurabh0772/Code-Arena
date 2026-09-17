@@ -6,6 +6,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "seed:admin": "node src/scripts/seed-admin.js",
+    "seed:problems": "node src/scripts/seed-problems.js",
+    "seed": "node src/scripts/seed-problems.js",
     "test": "node --test --test-concurrency=1 tests/**/*.test.js"
   },
   "keywords": [

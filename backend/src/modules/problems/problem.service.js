@@ -1,4 +1,5 @@
 const Problem = require('./problem.model');
+const TestCase = require('../test-cases/test-case.model');
 const AppError = require('../../utils/app-error');
 
 /**
@@ -73,7 +74,7 @@ const deactivateProblem = async (problemId) => {
 };
 
 /**
- * List active problems with summary projection
+ * List active problems with summary projection and active test case count
  * @param {Object} queryParams
  * @returns {Promise<Array<Object>>} List of active problems
  */
@@ -92,13 +93,33 @@ const listProblems = async (queryParams = {}) => {
     .select('title difficulty tags authorId createdAt')
     .sort({ createdAt: -1 });
 
+  const problemIds = problems.map((p) => p._id);
+  const activeTestCounts = await TestCase.aggregate([
+    {
+      $match: {
+        problemId: { $in: problemIds },
+        isActive: true
+      }
+    },
+    {
+      $group: {
+        _id: '$problemId',
+        count: { $sum: 1 }
+      }
+    }
+  ]);
+
+  const countMap = new Map();
+  activeTestCounts.forEach((tc) => countMap.set(tc._id.toString(), tc.count));
+
   return problems.map((p) => ({
     id: p._id.toString(),
     title: p.title,
     difficulty: p.difficulty,
     tags: p.tags,
     authorId: p.authorId,
-    createdAt: p.createdAt
+    createdAt: p.createdAt,
+    testCasesCount: countMap.get(p._id.toString()) || 0
   }));
 };
 
@@ -114,7 +135,14 @@ const getProblemById = async (problemId) => {
     throw new AppError('Problem not found', 404);
   }
 
-  return problem.toSafeObject();
+  const activeTestCasesCount = await TestCase.countDocuments({
+    problemId: problem._id,
+    isActive: true
+  });
+
+  const safe = problem.toSafeObject();
+  safe.testCasesCount = activeTestCasesCount;
+  return safe;
 };
 
 module.exports = {

@@ -87,7 +87,12 @@ export function ProblemDetails() {
 
       setSubmissionResult(completedSub);
     } catch (err) {
-      setSubmitError(err.message || 'Submission execution failed');
+      if (err.data?.errorCode === 'PROBLEM_NOT_READY' || err.status === 422) {
+        setSubmitError('This problem is not ready for evaluation. No active test cases are configured.');
+      } else {
+        setSubmitError(err.message || 'Submission execution failed');
+      }
+      setSubmissionResult(null);
     } finally {
       setIsSubmitting(false);
     }
@@ -274,9 +279,12 @@ export function ProblemDetails() {
 
           {/* Error notice if submission failed */}
           {submitError && (
-            <div className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/30 flex items-start space-x-2 text-red-400 text-xs">
+            <div className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/30 flex items-start space-x-2.5 text-red-400 text-xs">
               <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <span>{submitError}</span>
+              <div>
+                <span className="font-semibold text-red-300 block">Unable to submit</span>
+                <span className="mt-0.5 text-red-300/90 block">{submitError}</span>
+              </div>
             </div>
           )}
 

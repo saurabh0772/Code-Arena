@@ -46,6 +46,10 @@ const errorHandler = (err, req, res, next) => {
     message
   };
 
+  if (err.errorCode) {
+    response.errorCode = err.errorCode;
+  }
+
   if (config.isDevelopment && err.stack) {
     response.stack = err.stack;
   }

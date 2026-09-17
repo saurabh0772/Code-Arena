@@ -20,14 +20,17 @@
 
 ---
 
-## Architectural Decision Records (ADRs)
+## Original Development Sequence
 
+> **Historical Context**: The sequence below represents the original development roadmap formulated at project inception. Refer to the **Phase Roadmap Status** table above for the current implementation status.
+
+### Step 1 — Architectural Decision Records (ADRs)
 
 They answer:
 
 "Why did we make this architectural decision?"
 
-Step 2 — Then we start actual development
+### Step 2 — Then we start actual development
 
 After ADRs, we move from:
 

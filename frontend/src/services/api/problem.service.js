@@ -23,5 +23,44 @@ export const problemService = {
     } catch {
       return [];
     }
+  },
+
+  async createProblem(data) {
+    const payload = {
+      title: data.title,
+      description: data.description,
+      difficulty: data.difficulty,
+      tags: Array.isArray(data.tags) ? data.tags : [],
+      inputFormat: data.inputFormat,
+      outputFormat: data.outputFormat,
+      constraints: data.constraints,
+      examples: Array.isArray(data.examples) ? data.examples : []
+    };
+    const res = await apiClient.post('/problems', payload);
+    return res.data.problem;
+  },
+
+  async updateProblem(problemId, data) {
+    const payload = {};
+    const allowed = [
+      'title',
+      'description',
+      'difficulty',
+      'tags',
+      'inputFormat',
+      'outputFormat',
+      'constraints',
+      'examples'
+    ];
+    allowed.forEach((k) => {
+      if (data[k] !== undefined) payload[k] = data[k];
+    });
+    const res = await apiClient.patch(`/problems/${problemId}`, payload);
+    return res.data.problem;
+  },
+
+  async deactivateProblem(problemId) {
+    const res = await apiClient.delete(`/problems/${problemId}`);
+    return res;
   }
 };
