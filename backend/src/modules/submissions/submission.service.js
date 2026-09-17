@@ -37,10 +37,12 @@ const createSubmission = async (data, authenticatedUser) => {
 
   const createdSafeObject = submission.toSafeObject();
 
-  // Execute submission against problem's active test cases
+  // Execute submission synchronously against problem's active test cases
   await executeSubmission(submission._id);
 
-  return createdSafeObject;
+  // Return final evaluated submission with verdict and performance metrics
+  const completedSubmission = await Submission.findById(submission._id);
+  return completedSubmission ? completedSubmission.toSafeObject() : createdSafeObject;
 };
 
 /**

@@ -140,12 +140,10 @@ describe('Phase 6 Submission Module Test Suite', () => {
       assert.equal(res.body.data.submission.problemId, activeProblem._id.toString());
       assert.equal(res.body.data.submission.language, 'CPP');
       assert.equal(res.body.data.submission.sourceCode, '#include <iostream>\nint main() { return 0; }');
-      assert.equal(res.body.data.submission.status, 'SUBMITTED');
-      assert.equal(res.body.data.submission.verdict, 'PENDING');
-      assert.equal(res.body.data.submission.runtimeMs, null);
-      assert.equal(res.body.data.submission.memoryKb, null);
-      assert.equal(res.body.data.submission.testsPassed, null);
-      assert.equal(res.body.data.submission.totalTests, null);
+      assert.equal(res.body.data.submission.status, 'COMPLETED');
+      assert.equal(res.body.data.submission.verdict, 'ACCEPTED');
+      assert.equal(res.body.data.submission.testsPassed, 0);
+      assert.equal(res.body.data.submission.totalTests, 0);
     });
 
     it('ADMIN can also create a submission (201 Created)', async () => {
@@ -336,12 +334,10 @@ describe('Phase 6 Submission Module Test Suite', () => {
         });
 
       assert.equal(res.status, 201);
-      assert.equal(res.body.data.submission.status, 'SUBMITTED');
-      assert.equal(res.body.data.submission.verdict, 'PENDING');
-      assert.equal(res.body.data.submission.runtimeMs, null);
-      assert.equal(res.body.data.submission.memoryKb, null);
-      assert.equal(res.body.data.submission.testsPassed, null);
-      assert.equal(res.body.data.submission.totalTests, null);
+      assert.equal(res.body.data.submission.status, 'COMPLETED');
+      assert.equal(res.body.data.submission.verdict, 'ACCEPTED');
+      assert.equal(res.body.data.submission.testsPassed, 0);
+      assert.equal(res.body.data.submission.totalTests, 0);
     });
   });
 

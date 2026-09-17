@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Play, ArrowLeft, CheckCircle, AlertCircle, FileText, Code2, Send } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { problemService } from '../services/api/problem.service';
 import { submissionService } from '../services/api/submission.service';
 import { CodeEditor, DEFAULT_CPP_TEMPLATE } from '../components/editor/CodeEditor';
@@ -12,6 +13,9 @@ import { Card, CardContent } from '../components/ui/Card';
 
 export function ProblemDetails() {
   const { problemId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
 
   const [problem, setProblem] = useState(null);
   const [publicTestCases, setPublicTestCases] = useState([]);
@@ -53,6 +57,11 @@ export function ProblemDetails() {
   };
 
   const handleSubmit = async () => {
+    if (!user) {
+      navigate('/login', { state: { from: location } });
+      return;
+    }
+
     if (!sourceCode.trim()) {
       setSubmitError('Source code cannot be empty');
       return;
@@ -63,15 +72,19 @@ export function ProblemDetails() {
     setSubmissionResult(null);
 
     try {
-      // 1. POST submission
+      // 1. POST submission (returns evaluated submission in synchronous MVP)
       const createdSub = await submissionService.createSubmission({
         problemId,
         language,
         sourceCode
       });
 
-      // 2. Fetch completed submission result
-      const completedSub = await submissionService.getSubmissionById(createdSub.id);
+      // 2. Use evaluated result directly if complete, or fetch by ID
+      const completedSub =
+        createdSub && createdSub.status === 'COMPLETED'
+          ? createdSub
+          : await submissionService.getSubmissionById(createdSub.id);
+
       setSubmissionResult(completedSub);
     } catch (err) {
       setSubmitError(err.message || 'Submission execution failed');

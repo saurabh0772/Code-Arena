@@ -13,6 +13,7 @@ const config = {
     secret: process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' ? 'test-jwt-secret-key' : ''),
     expiresIn: process.env.JWT_EXPIRES_IN || '1d'
   },
+  workspaceBase: process.env.CODEARENA_WORKSPACE_BASE || '/tmp/codearena-workspaces',
   isProduction: process.env.NODE_ENV === 'production',
   isDevelopment: process.env.NODE_ENV === 'development' || !process.env.NODE_ENV
 };

@@ -21,18 +21,21 @@ services:
       - MONGODB_URI=mongodb://mongodb:27017/codearena
       - JWT_SECRET=codearena-dev-secret-key-32charsmin!
       - CORS_ORIGIN=http://localhost:5173,http://localhost:80,http://127.0.0.1:5173
+      - CODEARENA_WORKSPACE_BASE=/tmp/codearena-workspaces
     volumes:
       # Trusted infrastructure boundary: Only the execution engine backend has Docker socket access
       - /var/run/docker.sock:/var/run/docker.sock
+      # Shared DooD execution workspace between host Docker daemon and backend container
+      - ${CODEARENA_HOST_WORKSPACE_DIR:-/tmp/codearena-workspaces}:/tmp/codearena-workspaces:rw
     depends_on:
       mongodb:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD", "curl", "-fsS", "http://localhost:5000/health"]
+      interval: 5s
+      timeout: 3s
       retries: 5
-      start_period: 5s
+      start_period: 3s
 
   mongodb:
     image: mongo:7.0

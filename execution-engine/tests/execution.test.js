@@ -414,6 +414,21 @@ while True:
       assert.notStrictEqual(result.verdict, VERDICTS.RUNTIME_ERROR);
     });
 
+    it('Infinite loop in JavaScript maps strictly to TIME_LIMIT_EXCEEDED', async () => {
+      const sourceCode = `
+while (true) {}
+      `.trim();
+
+      const result = await execute({
+        language: 'JAVASCRIPT',
+        sourceCode,
+        testCase: { input: '', expectedOutput: 'done' }
+      });
+
+      assert.strictEqual(result.verdict, VERDICTS.TIME_LIMIT_EXCEEDED);
+      assert.notStrictEqual(result.verdict, VERDICTS.RUNTIME_ERROR);
+    });
+
     it('Repeated memory allocation maps to MEMORY_LIMIT_EXCEEDED', async () => {
       const sourceCode = `
 # Allocate 500MB when sandbox limit is 256MB
@@ -543,9 +558,169 @@ while True:
       assert.match(result.stderr, /Resource temporarily unavailable|BlockingIOError/);
     });
 
+    it('/etc/shadow protection: cannot be read or accessed by sandbox', async () => {
+      const sourceCode = `
+try:
+    with open('/etc/shadow', 'r') as f:
+        print("READ_SHADOW")
+except PermissionError:
+    print("PERMISSION_DENIED")
+except Exception as e:
+    print("ACCESS_BLOCKED")
+      `.trim();
+
+      const result = await execute({
+        language: 'PYTHON',
+        sourceCode,
+        testCase: { input: '', expectedOutput: 'PERMISSION_DENIED' }
+      });
+
+      assert.strictEqual(result.verdict, VERDICTS.ACCEPTED);
+      assert.strictEqual(result.stdout.trim(), 'PERMISSION_DENIED');
+    });
+
+    it('/root directory protection: cannot be traversed or accessed by sandbox', async () => {
+      const sourceCode = `
+import os
+try:
+    os.listdir('/root')
+    print("ROOT_ACCESSIBLE")
+except PermissionError:
+    print("PERMISSION_DENIED")
+except Exception as e:
+    print("ACCESS_BLOCKED")
+      `.trim();
+
+      const result = await execute({
+        language: 'PYTHON',
+        sourceCode,
+        testCase: { input: '', expectedOutput: 'PERMISSION_DENIED' }
+      });
+
+      assert.strictEqual(result.verdict, VERDICTS.ACCEPTED);
+      assert.strictEqual(result.stdout.trim(), 'PERMISSION_DENIED');
+    });
+
+    it('Read-only root filesystem: cannot write outside /tmp or /workspace', async () => {
+      const sourceCode = `
+try:
+    with open('/escape_attempt.txt', 'w') as f:
+        f.write('unauthorized')
+    print("WRITE_ALLOWED")
+except (PermissionError, OSError):
+    print("READ_ONLY_ENFORCED")
+      `.trim();
+
+      const result = await execute({
+        language: 'PYTHON',
+        sourceCode,
+        testCase: { input: '', expectedOutput: 'READ_ONLY_ENFORCED' }
+      });
+
+      assert.strictEqual(result.verdict, VERDICTS.ACCEPTED);
+      assert.strictEqual(result.stdout.trim(), 'READ_ONLY_ENFORCED');
+    });
+
     it('Guaranteed cleanup: zero lingering sandbox containers remain', async () => {
       const output = execSync('docker ps -a --filter "name=codearena-sbx-" --format "{{.Names}}"').toString().trim();
       assert.strictEqual(output, '', 'No abandoned sandbox containers should remain');
+    });
+
+    it('Independent Docker inspect verification: validates all sandbox kernel security flags on live container', async () => {
+      const containerName = `codearena-inspect-test-${Date.now()}`;
+      const { createWorkspace, cleanupWorkspace } = require('../src/utils/workspace');
+      const testWs = await createWorkspace();
+
+      try {
+        // Launch container using the identical flags configured in docker.sandbox.js
+        execSync(
+          `docker run -d --name ${containerName} ` +
+          `--network none ` +
+          `--user 1000:1000 ` +
+          `--cpus 1.0 ` +
+          `--memory 256m --memory-swap 256m ` +
+          `--pids-limit 64 ` +
+          `--cap-drop ALL ` +
+          `--security-opt no-new-privileges ` +
+          `--read-only ` +
+          `--tmpfs /tmp:rw,noexec,nosuid,size=32m ` +
+          `-v ${testWs}:/workspace:rw ` +
+          `-w /workspace ` +
+          `codearena-sandbox:latest sleep 30`
+        );
+
+        // Inspect running container directly via docker inspect JSON API
+        const inspectRaw = execSync(`docker inspect ${containerName}`).toString();
+        const [inspect] = JSON.parse(inspectRaw);
+
+        // 1. NetworkMode = none
+        assert.strictEqual(inspect.HostConfig.NetworkMode, 'none', 'NetworkMode must be none');
+
+        // 2. User = 1000:1000
+        assert.strictEqual(inspect.Config.User, '1000:1000', 'User must be 1000:1000');
+
+        // 3. Memory limit = 256 MB
+        assert.strictEqual(inspect.HostConfig.Memory, 256 * 1024 * 1024, 'Memory limit must be 256MB');
+
+        // 4. MemorySwap limit = 256 MB
+        assert.strictEqual(inspect.HostConfig.MemorySwap, 256 * 1024 * 1024, 'MemorySwap limit must be 256MB');
+
+        // 5. PidsLimit = 64
+        assert.strictEqual(inspect.HostConfig.PidsLimit, 64, 'PidsLimit must be 64');
+
+        // 6. ReadonlyRootfs = true
+        assert.strictEqual(inspect.HostConfig.ReadonlyRootfs, true, 'ReadonlyRootfs must be true');
+
+        // 7. CapDrop contains ALL
+        assert.ok(inspect.HostConfig.CapDrop && inspect.HostConfig.CapDrop.includes('ALL'), 'CapDrop must contain ALL');
+
+        // 8. SecurityOpt contains no-new-privileges
+        const secOpts = inspect.HostConfig.SecurityOpt || [];
+        assert.ok(secOpts.some((opt) => opt.includes('no-new-privileges')), 'SecurityOpt must include no-new-privileges');
+
+        // 9. Docker socket is NOT mounted anywhere
+        const mounts = inspect.Mounts || [];
+        const dockerSocketMount = mounts.find(
+          (m) =>
+            (m.Source && m.Source.includes('docker.sock')) ||
+            (m.Destination && m.Destination.includes('docker.sock'))
+        );
+        assert.strictEqual(dockerSocketMount, undefined, 'Docker socket must never be mounted in sandbox');
+      } finally {
+        execSync(`docker rm -f ${containerName}`, { stdio: 'ignore' });
+        await cleanupWorkspace(testWs);
+      }
+    });
+
+    it('Cleanup Matrix: workspace directories and containers are deleted after every execution outcome', async () => {
+      const { WORKSPACE_BASE_DIR } = require('../src/utils/workspace');
+      const outcomes = [
+        { name: 'ACCEPTED', lang: 'PYTHON', code: 'print("ok")', expected: 'ok' },
+        { name: 'WRONG_ANSWER', lang: 'PYTHON', code: 'print("bad")', expected: 'ok' },
+        { name: 'COMPILATION_ERROR', lang: 'CPP', code: 'invalid_cpp_code_syntax;', expected: '' },
+        { name: 'RUNTIME_ERROR', lang: 'PYTHON', code: 'x = 1/0', expected: '' },
+        { name: 'TIME_LIMIT_EXCEEDED', lang: 'PYTHON', code: 'while True: pass', expected: '' },
+        { name: 'MEMORY_LIMIT_EXCEEDED', lang: 'PYTHON', code: 'data = bytearray(500 * 1024 * 1024)', expected: '' },
+        { name: 'OUTPUT_LIMIT_EXCEEDED', lang: 'PYTHON', code: 'while True: print("X"*10000)', expected: '' }
+      ];
+
+      for (const item of outcomes) {
+        const res = await execute({
+          language: item.lang,
+          sourceCode: item.code,
+          testCase: { input: '', expectedOutput: item.expected }
+        });
+        assert.ok(res.verdict, `Must produce verdict for ${item.name}`);
+
+        // Assert no lingering containers
+        const containers = execSync('docker ps -a --filter "name=codearena-sbx-" --format "{{.Names}}"').toString().trim();
+        assert.strictEqual(containers, '', `No containers should linger after ${item.name}`);
+
+        // Assert all temporary workspaces in WORKSPACE_BASE_DIR are cleaned up
+        const files = await fs.readdir(WORKSPACE_BASE_DIR);
+        const lingeringWorkspaces = files.filter(f => f.startsWith('sbx-'));
+        assert.strictEqual(lingeringWorkspaces.length, 0, `No workspace directories should linger in ${WORKSPACE_BASE_DIR} after ${item.name}`);
+      }
     });
   });
 });

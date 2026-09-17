@@ -36,9 +36,10 @@ export function Navbar() {
             </Link>
 
             {/* Nav links */}
-            {isAuthenticated && (
-              <div className="hidden md:flex items-center space-x-1">
-                {navLinks.map((link) => {
+            <div className="hidden md:flex items-center space-x-1">
+              {navLinks
+                .filter((link) => link.path === '/problems' || isAuthenticated)
+                .map((link) => {
                   const isActive = location.pathname.startsWith(link.path);
                   return (
                     <Link
@@ -54,8 +55,7 @@ export function Navbar() {
                     </Link>
                   );
                 })}
-              </div>
-            )}
+            </div>
           </div>
 
           {/* User profile & actions */}

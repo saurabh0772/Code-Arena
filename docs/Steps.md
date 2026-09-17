@@ -1,23 +1,27 @@
-🚀 What we create next
-Step 1 — Finish ADRs
+# CodeArena Development Roadmap & Status
 
-First:
+## Phase Roadmap Status
 
-docs/
-└── 10-decisions/
-    └── ADR/
-        ├── ADR-001-modular-monolith.md
-        ├── ADR-002-mongodb.md
-        ├── ADR-003-rest-api.md
-        ├── ADR-004-separate-testcases.md
-        ├── ADR-005-docker-sandbox.md
-        ├── ADR-006-synchronous-execution.md
-        ├── ADR-007-separate-execution-engine.md
-        ├── ADR-008-stable-public-api.md
-        ├── ADR-009-sequential-execution.md
-        └── ADR-010-language-support.md
+| Phase | Description | Status |
+|---|---|---|
+| **Phase 1** | Repository & Backend Setup | **COMPLETE** |
+| **Phase 2** | Backend Core & Database | **COMPLETE** |
+| **Phase 3** | Authentication & RBAC | **COMPLETE** |
+| **Phase 4** | Problem Module | **COMPLETE** |
+| **Phase 5** | Test Case Module | **COMPLETE** |
+| **Phase 6** | Submission Module | **COMPLETE** |
+| **Phase 7** | Execution Engine | **COMPLETE** |
+| **Phase 8** | Connect Everything (MVP Integration) | **COMPLETE** |
+| **Phase 9** | Frontend SPA | **COMPLETE** |
+| **Phase 10** | Testing + Deployment Verification | **COMPLETE** |
+| **Phase 11** | Distributed Execution Engine (Queues/Workers) | **FUTURE** |
 
-These should be short, around 20–40 lines each.
+> **Architecture Note**: CodeArena is currently structured as an integrated Modular Monolith with secure Docker sandboxing and synchronous evaluation. Distributed queuing, worker pools, and horizontal scaling are scheduled exclusively for Phase 11.
+
+---
+
+## Architectural Decision Records (ADRs)
+
 
 They answer:
 

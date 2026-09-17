@@ -704,30 +704,38 @@ The underlying sandbox technology should remain an implementation detail of the 
 
 ### Application Containers
 
-- [ ] Trusted base image.
-- [ ] Versioned images.
-- [ ] Minimal dependencies.
-- [ ] No secrets in image.
-- [ ] `.dockerignore` configured.
-- [ ] Non-root where practical.
-- [ ] Health checks available.
+- [x] Trusted base image.
+- [x] Versioned images.
+- [x] Minimal dependencies.
+- [x] No secrets in image.
+- [x] `.dockerignore` configured.
+- [x] Non-root where practical.
+- [x] Health checks available.
 
 ### Sandbox Containers
 
-- [ ] Fresh container per submission.
-- [ ] Network disabled.
-- [ ] CPU limit.
-- [ ] Memory limit.
-- [ ] Process limit.
-- [ ] Execution timeout.
-- [ ] Output limit.
-- [ ] Restricted filesystem.
-- [ ] Non-root execution.
-- [ ] Reduced capabilities.
-- [ ] No-new-privileges where practical.
-- [ ] No Docker socket.
-- [ ] No application secrets.
-- [ ] Cleanup guaranteed.
+- [x] Fresh container per submission.
+- [x] Network disabled.
+- [x] CPU limit.
+- [x] Memory limit.
+- [x] Process limit.
+- [x] Execution timeout.
+- [x] Output limit.
+- [x] Restricted filesystem.
+- [x] Non-root execution.
+- [x] Reduced capabilities.
+- [x] No-new-privileges where practical.
+- [x] No Docker socket.
+- [x] No application secrets.
+- [x] Cleanup guaranteed.
+
+---
+
+### Docker Security Boundaries & Limitations
+
+1. **Shared Host Kernel**: Docker containers provide process and namespace isolation (cgroups, namespaces, seccomp) but share the underlying host Linux kernel.
+2. **Infrastructure Boundary**: The Docker daemon socket (`/var/run/docker.sock`) is accessible strictly to the trusted backend process; it is never exposed to untrusted code or mounted inside sandbox containers.
+3. **Future Isolation**: For multi-tenant production deployments with untrusted untrusted code, future iterations (Phase 11+) can evaluate microVM or user-space kernel virtualization technologies such as **gVisor (runsc)** or **AWS Firecracker**.
 
 ---
 
@@ -754,3 +762,13 @@ The underlying sandbox technology should remain an implementation detail of the 
 ```
 
 Docker provides the practical containerization and sandboxing foundation for the MVP, while the architecture leaves room for stronger execution isolation in the future.
+
+---
+
+# 42. Docker-outside-of-Docker (DooD) Workspace Mount
+
+When running within Docker Compose:
+1. The backend container mounts `/var/run/docker.sock` to control the host Docker daemon.
+2. To allow the host daemon to mount sandbox workspaces, a dedicated shared workspace directory (`/tmp/codearena-workspaces`) is bind-mounted at the identical path between host and backend.
+3. Each submission creates an isolated subdirectory (`/tmp/codearena-workspaces/sbx-XXXXXX`) with `0777` permissions so sandbox user `UID 1000` can write compiled binaries.
+4. Guaranteed cleanup removes both the container (`docker rm -f`) and the temporary workspace directory across all execution verdicts.

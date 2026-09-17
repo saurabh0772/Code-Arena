@@ -16,26 +16,12 @@ export function App() {
           <Navbar />
           <main className="flex-1">
             <Routes>
-              {/* Public route */}
+              {/* Public routes */}
               <Route path="/login" element={<Login />} />
+              <Route path="/problems" element={<Problems />} />
+              <Route path="/problems/:problemId" element={<ProblemDetails />} />
 
               {/* Protected routes */}
-              <Route
-                path="/problems"
-                element={
-                  <ProtectedRoute>
-                    <Problems />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/problems/:problemId"
-                element={
-                  <ProtectedRoute>
-                    <ProblemDetails />
-                  </ProtectedRoute>
-                }
-              />
               <Route
                 path="/submissions"
                 element={
