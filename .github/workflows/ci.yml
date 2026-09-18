@@ -1,0 +1,113 @@
+name: CodeArena CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-and-test:
+    name: Syntax, Test & Validate
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm ci || npm install
+
+      - name: JavaScript Syntax Verification
+        run: |
+          cd backend
+          node --check src/server.js
+          node --check src/app.js
+          node --check src/workers/submission.worker.js
+          node --check src/modules/observability/metrics.service.js
+          node --check src/modules/observability/tracing.service.js
+
+      - name: Run unit & architecture tests
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-test-secret-key-at-least-32-chars-long!
+          MONGODB_URI: mongodb://localhost:27017/codearena_ci
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+        run: |
+          cd backend
+          node --test tests/phase18.test.js tests/failure.test.js
+
+      # Informational security audit: monitored for critical CVEs without halting builds on transitive warnings
+      - name: Security Audit (Informational Non-Blocking)
+        run: |
+          cd backend
+          npm audit --audit-level=critical || echo "ℹ Informational audit: dependency warnings detected; non-blocking in CI"
+
+  build-and-validate-k8s:
+    name: Build Images & Validate Kubernetes
+    needs: validate-and-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build with immutable Git SHA tags (no push to registry in CI validation)
+      # Note: Both API server and worker daemon execute from codearena-backend image
+      - name: Build Backend & Worker Application Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: false
+          tags: |
+            codearena-backend:${{ github.sha }}
+            codearena-backend:latest
+
+      - name: Build Frontend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: frontend/Dockerfile
+          push: false
+          tags: |
+            codearena-frontend:${{ github.sha }}
+            codearena-frontend:latest
+
+      # Level 2 Kustomize overlay rendering: proves YAML parses and overlay patches render cleanly.
+      # Note: This is Level 2 Kustomize rendering, distinct from Level 3 Kubernetes API schema validation.
+      - name: Render Kubernetes Overlays (Level 2 Kustomize Rendering)
+        run: |
+          kubectl kustomize k8s/base > /dev/null
+          kubectl kustomize k8s/overlays/production > /dev/null
+          kubectl kustomize k8s/overlays/local > /dev/null
+          echo "✔ Kubernetes Level 2 Kustomize rendering validated successfully (base, local, production)."

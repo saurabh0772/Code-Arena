@@ -1,0 +1,135 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "API Gateway & HTTP Traffic Overview",
+      "type": "row"
+    },
+    {
+      "id": 2,
+      "title": "HTTP Request Rate (req/sec)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "targets": [
+        {
+          "expr": "sum(rate(codearena_http_requests_total[1m])) by (status)",
+          "legendFormat": "Status {{status}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "P95 / P99 HTTP Latency (seconds)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(codearena_http_request_duration_seconds_bucket[1m])) by (le, method, route))",
+          "legendFormat": "P95 {{method}} {{route}}"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(codearena_http_request_duration_seconds_bucket[1m])) by (le, method, route))",
+          "legendFormat": "P99 {{method}} {{route}}"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+      "id": 4,
+      "title": "Submissions & Execution Telemetry",
+      "type": "row"
+    },
+    {
+      "id": 5,
+      "title": "Submission Rate by Verdict",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "targets": [
+        {
+          "expr": "sum(rate(codearena_submissions_total[1m])) by (verdict)",
+          "legendFormat": "{{verdict}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "BullMQ Queue Depth (Waiting vs Active)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "targets": [
+        {
+          "expr": "codearena_queue_jobs_count",
+          "legendFormat": "State: {{queue_state}}"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 },
+      "id": 7,
+      "title": "Worker Fleet & Infrastructure Health",
+      "type": "row"
+    },
+    {
+      "id": 8,
+      "title": "Active Worker Nodes",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 19 },
+      "targets": [
+        {
+          "expr": "codearena_active_workers_count",
+          "legendFormat": "Active Workers"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Worker Failure & Retry Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 9, "x": 6, "y": 19 },
+      "targets": [
+        {
+          "expr": "sum(rate(codearena_worker_failures_total[1m])) by (failure_type)",
+          "legendFormat": "{{failure_type}}"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Execution Latency by Language",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 9, "x": 15, "y": 19 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(codearena_execution_duration_seconds_bucket[1m])) by (le, language))",
+          "legendFormat": "P95 {{language}}"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(codearena_execution_duration_seconds_bucket[1m])) by (le, language))",
+          "legendFormat": "P99 {{language}}"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["codearena", "infrastructure", "phase18"],
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "CodeArena — Production Infrastructure & Observability",
+  "version": 1
+}

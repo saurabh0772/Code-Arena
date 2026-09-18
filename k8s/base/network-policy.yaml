@@ -1,0 +1,195 @@
+# ==============================================================================
+# Network Segmentation & Least-Privilege Policies
+# ==============================================================================
+# Provides declarative pod-to-pod network isolation across CodeArena tiers.
+# Explicitly handles CoreDNS (UDP/TCP 53) egress to prevent DNS breakage.
+# Execution sandboxes run with container-level --network none.
+# ==============================================================================
+
+# 1. Namespace Default Deny: Blocks all unapproved ingress and egress by default
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: codearena
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# 2. Allow In-Cluster DNS Resolution (UDP/TCP 53 to kube-system CoreDNS)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: codearena
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# 3. Frontend Policy: Accepts Ingress traffic; egresses only to Backend API and DNS
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-network-policy
+  namespace: codearena
+spec:
+  podSelector:
+    matchLabels:
+      app: codearena-frontend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Accept HTTP traffic from Ingress Controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 80
+  egress:
+    # Allow communication to Backend API
+    - to:
+        - podSelector:
+            matchLabels:
+              app: codearena-backend
+      ports:
+        - protocol: TCP
+          port: 5000
+    # Allow DNS egress
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# 4. Backend Policy: Accepts traffic from Ingress and Frontend;
+#    egresses ONLY to MongoDB, Redis, and DNS.
+#    Strictly BLOCKS Docker socket and external outbound internet.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-network-policy
+  namespace: codearena
+spec:
+  podSelector:
+    matchLabels:
+      app: codearena-backend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Accept HTTP traffic strictly from frontend or ingress controller
+    - from:
+        - podSelector:
+            matchLabels:
+              app: codearena-frontend
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 5000
+  egress:
+    # Allow MongoDB datastore access
+    - to:
+        - podSelector:
+            matchLabels:
+              app: mongodb
+      ports:
+        - protocol: TCP
+          port: 27017
+    # Allow Redis message broker access
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 26379 # Redis Sentinel port
+    # Allow DNS egress
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# 5. Worker Policy: Zero ingress; egresses ONLY to MongoDB, Redis, and DNS.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: worker-network-policy
+  namespace: codearena
+spec:
+  podSelector:
+    matchLabels:
+      app: codearena-worker
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: [] # Deny all incoming connections (pure consumer daemon)
+  egress:
+    # Allow MongoDB datastore access
+    - to:
+        - podSelector:
+            matchLabels:
+              app: mongodb
+      ports:
+        - protocol: TCP
+          port: 27017
+    # Allow Redis message broker access
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 26379
+    # Allow DNS egress
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# 6. Datastore Ingress Policy (Applies when running local in-cluster Mongo/Redis demo)
+#    Restricts datastore ingress strictly to authenticated backend and worker pods.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: datastore-network-policy
+  namespace: codearena
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: ["mongodb", "redis"]
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: codearena-backend
+        - podSelector:
+            matchLabels:
+              app: codearena-worker

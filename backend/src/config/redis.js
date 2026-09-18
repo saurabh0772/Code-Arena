@@ -49,7 +49,20 @@ function createRedisClient(options = {}) {
   const redisOptions = getRedisConfigOptions(options);
 
   let client;
-  if (config.redis.url) {
+  if (process.env.REDIS_SENTINEL_HOSTS) {
+    // Advanced Demonstration: Redis Sentinel High-Availability configuration
+    const sentinels = process.env.REDIS_SENTINEL_HOSTS.split(',').map((entry) => {
+      const [host, port] = entry.trim().split(':');
+      return { host, port: Number(port) || 26379 };
+    });
+    client = new Redis({
+      sentinels,
+      name: process.env.REDIS_SENTINEL_MASTER_NAME || 'mymaster',
+      password: config.redis.password || undefined,
+      sentinelPassword: process.env.REDIS_SENTINEL_PASSWORD || undefined,
+      ...redisOptions
+    });
+  } else if (config.redis.url) {
     client = new Redis(config.redis.url, redisOptions);
   } else {
     client = new Redis({

@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: codearena-backend
+  namespace: codearena
+  labels:
+    app: codearena-backend
+    app.kubernetes.io/name: codearena-backend
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: codearena
+spec:
+  type: ClusterIP
+  selector:
+    app: codearena-backend
+  ports:
+    - name: http
+      port: 5000
+      targetPort: 5000
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: codearena-frontend
+  namespace: codearena
+  labels:
+    app: codearena-frontend
+    app.kubernetes.io/name: codearena-frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: codearena
+spec:
+  type: ClusterIP
+  selector:
+    app: codearena-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP

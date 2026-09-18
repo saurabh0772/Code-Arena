@@ -1,5 +1,6 @@
 const auditLogService = require('./audit-log.service');
 const { getQueueMetrics: fetchQueueMetrics } = require('../../queues/submission.queue');
+const workerRegistry = require('../../workers/worker-registry.service');
 const AppError = require('../../utils/app-error');
 
 const getAuditLogs = async (req, res, next) => {
@@ -29,8 +30,24 @@ const getQueueMetrics = async (req, res, next) => {
   }
 };
 
+const getWorkers = async (req, res, next) => {
+  try {
+    const workers = await workerRegistry.getActiveWorkers();
+    res.status(200).json({
+      success: true,
+      data: {
+        count: workers.length,
+        workers
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getAuditLogs,
-  getQueueMetrics
+  getQueueMetrics,
+  getWorkers
 };
 

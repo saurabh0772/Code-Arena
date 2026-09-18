@@ -80,6 +80,20 @@ const submissionSchema = new mongoose.Schema(
     errorMessage: {
       type: String,
       default: null
+    },
+    execution: {
+      workerId: {
+        type: String,
+        default: null
+      },
+      startedAt: {
+        type: Date,
+        default: null
+      },
+      completedAt: {
+        type: Date,
+        default: null
+      }
     }
   },
   {
@@ -122,6 +136,13 @@ submissionSchema.methods.toSafeObject = function (options = { includeCode: true 
     completedAt: this.completedAt,
     failedAt: this.failedAt,
     errorMessage: this.errorMessage,
+    execution: this.execution
+      ? {
+          workerId: this.execution.workerId || null,
+          startedAt: this.execution.startedAt || null,
+          completedAt: this.execution.completedAt || null
+        }
+      : undefined,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt
   };

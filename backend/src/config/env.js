@@ -1,3 +1,5 @@
+const os = require('os');
+const crypto = require('crypto');
 const dotenv = require('dotenv');
 
 // Load environment variables from .env file if present
@@ -37,11 +39,51 @@ if (!isTest) {
   validateEnv();
 }
 
+function parsePositiveInt(val, defaultVal) {
+  if (val === undefined || val === null || String(val).trim() === '') {
+    return defaultVal;
+  }
+  const parsed = Number(val);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return defaultVal;
+  }
+  return parsed;
+}
+
+function resolveApiInstanceId(explicitId) {
+  if (explicitId && typeof explicitId === 'string' && explicitId.trim().length > 0) {
+    return explicitId.trim();
+  }
+  if (process.env.API_INSTANCE_ID && process.env.API_INSTANCE_ID.trim().length > 0) {
+    return process.env.API_INSTANCE_ID.trim();
+  }
+  return `api-${os.hostname()}-${process.pid}`;
+}
+
+function resolveWorkerId(explicitId) {
+  if (explicitId && typeof explicitId === 'string' && explicitId.trim().length > 0) {
+    return explicitId.trim();
+  }
+  if (process.env.WORKER_ID && process.env.WORKER_ID.trim().length > 0) {
+    return process.env.WORKER_ID.trim();
+  }
+  const randomSuffix = crypto.randomBytes(4).toString('hex');
+  return `worker-${os.hostname()}-${process.pid}-${randomSuffix}`;
+}
+
 const config = {
   env,
   port: parseInt(process.env.PORT, 10) || 5000,
+  apiInstanceId: resolveApiInstanceId(),
+  resolveApiInstanceId,
+  resolveWorkerId,
   mongodb: {
-    uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/codearena'
+    uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/codearena',
+    replicaSet: (process.env.MONGODB_REPLICA_SET && process.env.MONGODB_REPLICA_SET.trim()) || undefined,
+    readPreference: (process.env.MONGODB_READ_PREFERENCE && process.env.MONGODB_READ_PREFERENCE.trim()) || undefined,
+    retryWrites: process.env.MONGODB_RETRY_WRITES !== undefined
+      ? process.env.MONGODB_RETRY_WRITES === 'true'
+      : undefined
   },
   redis: {
     host: process.env.REDIS_HOST || 'localhost',
@@ -50,7 +92,11 @@ const config = {
     url: process.env.REDIS_URL || undefined
   },
   worker: {
-    concurrency: parseInt(process.env.WORKER_CONCURRENCY, 10) || 2
+    id: (process.env.WORKER_ID && process.env.WORKER_ID.trim()) || null,
+    concurrency: parsePositiveInt(process.env.WORKER_CONCURRENCY, 2),
+    heartbeatIntervalMs: parsePositiveInt(process.env.WORKER_HEARTBEAT_INTERVAL_MS, 5000),
+    gracefulShutdownTimeoutMs: parsePositiveInt(process.env.WORKER_GRACEFUL_SHUTDOWN_TIMEOUT_MS, 10000),
+    staleTimeoutMs: parsePositiveInt(process.env.WORKER_STALE_TIMEOUT_MS, 30000)
   },
   jwt: {
     secret: process.env.JWT_SECRET || (isTest ? 'test-jwt-secret-key' : 'codearena-dev-local-secret-key-32charsmin!'),
@@ -75,7 +121,8 @@ const config = {
   isProduction,
   isDevelopment,
   isTest,
-  validateEnv
+  validateEnv,
+  parsePositiveInt
 };
 
 module.exports = config;

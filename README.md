@@ -26,10 +26,10 @@ CodeArena is a production-grade, secure online judge platform designed as a high
 | **Phase 12** | Asynchronous Submission Processing (Queue, Worker, Polling) | **COMPLETE** |
 | **Phase 13** | Redis + Queue Foundation (Centralized Client, Minimal Payload, Metrics) | **COMPLETE** |
 | **Phase 14** | Worker Architecture (Autonomous Daemon, Lifecycle, State Machine Safety) | **COMPLETE** |
-| **Phase 15** | Multiple Workers / Concurrency | **FUTURE** |
-| **Phase 16** | Horizontal Scaling | **FUTURE** |
-| **Phase 17** | Distributed Execution Architecture | **FUTURE** |
-| **Phase 18** | Advanced Infrastructure | **FUTURE** |
+| **Phase 15** | Multiple Workers / Concurrency | **COMPLETE** |
+| **Phase 16** | Horizontal Scaling | **COMPLETE** |
+| **Phase 17** | Distributed Execution Architecture | **COMPLETE** |
+| **Phase 18** | Advanced Infrastructure | **IMPLEMENTED & TESTED LOCALLY** |
 
 ---
 
@@ -232,6 +232,27 @@ All untrusted user submissions run in disposable containers governed by strict L
    - **Memory Limit**: 256 MB cgroup limit with zero swap (`MEMORY_LIMIT_EXCEEDED`).
    - **PID Limit**: 64 processes maximum (fork bomb mitigation).
    - **Output Cap**: 512 KB maximum stdout/stderr (active termination with `OUTPUT_LIMIT_EXCEEDED`).
+
+---
+
+## Advanced Infrastructure & Deployment Tiers (Phase 18)
+
+CodeArena establishes four distinct deployment tiers with realistic operational boundaries:
+
+1. **Local (Canonical Stack)**: Docker Compose (`docker-compose.yml`) with standalone MongoDB 7.0, Redis 7.2, and `DockerRuntime`.
+2. **Advanced Local / Demonstration**: Kubernetes local overlay (`k8s/overlays/local/`), in-cluster MongoDB StatefulSet, Redis Sentinel demonstration (`REDIS_SENTINEL_HOSTS`), KEDA worker autoscaler, and Prometheus/Grafana.
+3. **Production-Oriented Recommendation**: Managed MongoDB (Atlas), Managed Redis (ElastiCache), External Secrets Operator, Kubernetes with dedicated worker nodes (`requiredDuringSchedulingIgnoredDuringExecution`), HPA, KEDA, NetworkPolicies with private CIDRs, and true Prometheus histograms.
+4. **Experimental**: `GVisorRuntime` (`runsc`) and `FirecrackerRuntime` (microVM jailer) as documented capability interfaces.
+
+### Verification Levels
+CodeArena uses strict six-tier verification semantics (`node scripts/verify-phase18.js`):
+- **Level 1 — YAML Syntax**: VERIFIED (23 manifests parsed cleanly)
+- **Level 2 — Kustomize Rendering**: NOT VERIFIED (CLI unavailable on local host; manifests validated for CI)
+- **Level 3 — Kubernetes API Schema**: NOT VERIFIED (kubeconform / live API server unavailable on host)
+- **Level 4 — CRD Specification**: NOT VERIFIED (KEDA/Prometheus CRD schemas unavailable on host)
+- **Level 5 — Live Cluster**: NOT RUN (No live cluster accessible on host)
+- **Level 6 — Live Autoscaling**: NOT RUN (Requires active cluster with KEDA operator & metrics-server)
+- **Architecture Invariants**: PASSED (All 9 invariants: Docker isolation, non-root context, dedicated worker affinity, 30s drain, worker image consistency, base secret exclusion, production datastore isolation & managed CIDR NetworkPolicy, HPA/KEDA triggers, low-cardinality histograms, W3C trace context propagation).
 
 ---
 

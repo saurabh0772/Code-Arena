@@ -9,6 +9,10 @@
     "seed": "node src/scripts/seed.js",
     "worker": "node src/workers/submission.worker.js",
     "docker:build-sandbox": "docker build -t codearena-sandbox:v1 -f ../execution-engine/Dockerfile.sandbox ../execution-engine",
+    "verify:phase16": "node src/scripts/verify-phase16-live.js",
+    "verify:phase17": "node src/scripts/verify-phase17-live.js",
+    "verify:phase18": "node ../scripts/verify-phase18.js",
+    "load:test": "node ../scripts/load-test.js",
     "test": "node --test --test-concurrency=1 tests/**/*.test.js"
   },
   "keywords": [
@@ -30,6 +34,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.10.1",
     "morgan": "^1.12.1",
+    "rate-limit-redis": "^6.0.1",
     "swagger-ui-dist": "^5.33.0"
   },
   "devDependencies": {

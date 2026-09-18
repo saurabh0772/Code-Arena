@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: codearena-worker
+  namespace: codearena
+spec:
+  template:
+    spec:
+      affinity:
+        nodeAffinity:
+          # Production Boundary: Strictly require dedicated execution worker nodes
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: dedicated
+                    operator: In
+                    values:
+                      - codearena-worker
+      tolerations:
+        - key: "dedicated"
+          operator: "Equal"
+          value: "codearena-worker"
+          effect: "NoSchedule"

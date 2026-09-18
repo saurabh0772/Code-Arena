@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: codearena-backend
+  namespace: codearena
+  labels:
+    app: codearena-backend
+    app.kubernetes.io/name: codearena-backend
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: codearena
+    tier: api
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: codearena-backend
+      tier: api
+  template:
+    metadata:
+      labels:
+        app: codearena-backend
+        app.kubernetes.io/name: codearena-backend
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: codearena
+        tier: api
+    spec:
+      terminationGracePeriodSeconds: 15
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+        - name: backend
+          image: codearena-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: codearena-config
+            - secretRef:
+                name: codearena-secrets
+          env:
+            - name: API_INSTANCE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # NOTE: Backend has NO Docker daemon socket access.
+          # Strict zero-execution boundary: backend API is strictly stateless and enqueues jobs to Redis.

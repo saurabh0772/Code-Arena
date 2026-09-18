@@ -1,0 +1,55 @@
+# ==============================================================================
+# Production TLS Ingress Patch
+# ==============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: codearena-ingress
+  namespace: codearena
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  tls:
+    - hosts:
+        - codearena.example.com
+      secretName: codearena-tls-cert
+  rules:
+    - host: codearena.example.com
+      http:
+        paths:
+          - path: /api/
+            pathType: Prefix
+            backend:
+              service:
+                name: codearena-backend-service
+                port:
+                  number: 5000
+          - path: /metrics
+            pathType: Exact
+            backend:
+              service:
+                name: codearena-backend-service
+                port:
+                  number: 5000
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: codearena-backend-service
+                port:
+                  number: 5000
+          - path: /ready
+            pathType: Exact
+            backend:
+              service:
+                name: codearena-backend-service
+                port:
+                  number: 5000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: codearena-frontend-service
+                port:
+                  number: 80

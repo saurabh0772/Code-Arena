@@ -46,11 +46,6 @@ async function executeSubmission(submissionId) {
 
   // Defensive validation: problem with no test cases must never be ACCEPTED
   if (!testCases || testCases.length === 0) {
-    submission.status = 'COMPLETED';
-    submission.verdict = 'RUNTIME_ERROR';
-    submission.testsPassed = 0;
-    submission.totalTests = 0;
-    await submission.save();
     logger.warn('Submission aborted: problem has no active test cases', {
       submissionId: submission._id.toString(),
       problemId: submission.problemId.toString()

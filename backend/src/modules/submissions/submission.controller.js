@@ -6,7 +6,11 @@ const submissionService = require('./submission.service');
  */
 const createSubmission = async (req, res, next) => {
   try {
-    const submission = await submissionService.createSubmission(req.body, req.user);
+    const submission = await submissionService.createSubmission(
+      req.body,
+      req.user,
+      { traceparent: req.traceContext?.traceparent }
+    );
 
     res.status(201).json({
       success: true,

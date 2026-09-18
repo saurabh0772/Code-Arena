@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: codearena-worker
+  namespace: codearena
+  labels:
+    app: codearena-worker
+    app.kubernetes.io/name: codearena-worker
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: codearena
+    tier: worker
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: codearena-worker
+      tier: worker
+  template:
+    metadata:
+      labels:
+        app: codearena-worker
+        app.kubernetes.io/name: codearena-worker
+        app.kubernetes.io/component: worker
+        app.kubernetes.io/part-of: codearena
+        tier: worker
+    spec:
+      # Bounded drain: 30s grace period allows worker to set DRAINING status,
+      # pause intake via worker.pause(true), finish active sandboxes, and disconnect cleanly.
+      terminationGracePeriodSeconds: 30
+      # Advanced Deployment Option: Node Pool Isolation
+      # Directs untrusted execution workloads away from public-facing API pods.
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: dedicated
+                    operator: In
+                    values:
+                      - codearena-worker
+      tolerations:
+        - key: "dedicated"
+          operator: "Equal"
+          value: "codearena-worker"
+          effect: "NoSchedule"
+      containers:
+        - name: worker
+          image: codearena-backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "src/workers/submission.worker.js"]
+          envFrom:
+            - configMapRef:
+                name: codearena-config
+            - secretRef:
+                name: codearena-secrets
+          env:
+            - name: HOST_HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1024Mi
+          # SECURITY NOTICE:
+          # Worker mounting of the Docker socket (/var/run/docker.sock) is a security-sensitive
+          # capability required by the Docker-out-of-Docker execution model.
+          # In production, this tier is placed on isolated worker nodes with restricted IAM/RBAC.
+          volumeMounts:
+            - name: docker-socket
+              mountPath: /var/run/docker.sock
+            - name: workspace-volume
+              mountPath: /tmp/codearena-workspaces
+      volumes:
+        - name: docker-socket
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
+        - name: workspace-volume
+          hostPath:
+            path: /tmp/codearena-workspaces
+            type: DirectoryOrCreate

@@ -16,6 +16,10 @@ const { createWorkspace, cleanupWorkspace } = require('./utils/workspace');
 const { normalizeOutput, evaluateOutput } = require('./evaluator/output.evaluator');
 const { runInDockerSandbox, checkDockerAvailable } = require('./runner/docker.sandbox');
 const { runProcess } = require('./runner/process.runner');
+const { ExecutionRuntime } = require('./runner/runtime.interface');
+const { DockerRuntime } = require('./runner/docker.runtime');
+const { GVisorRuntime } = require('./runner/gvisor.runtime');
+const { FirecrackerRuntime } = require('./runner/firecracker.runtime');
 
 module.exports = {
   execute,
@@ -35,5 +39,9 @@ module.exports = {
   evaluateOutput,
   runInDockerSandbox,
   checkDockerAvailable,
-  runProcess
+  runProcess,
+  ExecutionRuntime,
+  DockerRuntime,
+  GVisorRuntime,
+  FirecrackerRuntime
 };

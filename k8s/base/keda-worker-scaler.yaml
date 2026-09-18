@@ -1,0 +1,45 @@
+# ==============================================================================
+# KEDA ScaledObject: Autonomous Worker Queue-Backlog Autoscaler
+# ==============================================================================
+# In contrast to CPU-driven API autoscaling, background execution workers scale
+# primarily on BullMQ queue backlog depth.
+# Pinned BullMQ Key: bull:submission-execution:wait
+# (BullMQ v6 default prefix 'bull' + queue name 'submission-execution')
+# ==============================================================================
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: codearena-worker-scaler
+  namespace: codearena
+  labels:
+    app.kubernetes.io/name: codearena-worker-scaler
+    app.kubernetes.io/part-of: codearena
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: codearena-worker
+  pollingInterval: 15
+  cooldownPeriod: 300
+  minReplicaCount: 2
+  maxReplicaCount: 10
+  fallback:
+    failureThreshold: 3
+    replicas: 2
+  advanced:
+    restoreToOriginalReplicaCount: false
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+            - type: Percent
+              value: 10
+              periodSeconds: 60
+  triggers:
+    - type: redis
+      metadata:
+        address: redis.codearena.svc.cluster.local:6379
+        listName: bull:submission-execution:wait
+        listLength: "5"
+        enableTLS: "false"

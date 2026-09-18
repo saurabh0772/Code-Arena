@@ -1382,6 +1382,59 @@
         }
       }
     },
+    "/api/v1/admin/workers": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get distributed worker registry",
+        "description": "Retrieves active worker instances from the ephemeral Redis registry (workerId, status, concurrency, startedAt, lastHeartbeat). Restricted strictly to administrators (ADMIN role).",
+        "operationId": "getWorkers",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Worker registry entries retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "count": { "type": "integer", "example": 2 },
+                        "workers": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "workerId": { "type": "string", "example": "worker-codearena-1-19" },
+                              "status": { "type": "string", "example": "READY" },
+                              "concurrency": { "type": "integer", "example": 2 },
+                              "startedAt": { "type": "string", "format": "date-time" },
+                              "lastHeartbeat": { "type": "string", "format": "date-time" }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": ["System"],

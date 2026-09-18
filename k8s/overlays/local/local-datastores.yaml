@@ -1,0 +1,100 @@
+# ==============================================================================
+# Local Demonstration Datastores (StatefulSets)
+# ==============================================================================
+# CLASSIFICATION: Advanced / Local Demonstration
+# NOTE: In production environments, Managed MongoDB (Atlas) and Managed Redis
+# (ElastiCache / Redis Cloud) are the authoritative recommended path.
+# These manifests provide simple single-replica / demo StatefulSets for local K8s testing.
+# ==============================================================================
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb
+  namespace: codearena
+  labels:
+    app: mongodb
+    tier: database
+spec:
+  serviceName: mongodb
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+        tier: database
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:7.0
+          ports:
+            - containerPort: 27017
+              name: mongodb
+          volumeMounts:
+            - name: mongodb-data
+              mountPath: /data/db
+  volumeClaimTemplates:
+    - metadata:
+        name: mongodb-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+  namespace: codearena
+  labels:
+    app: mongodb
+spec:
+  ports:
+    - port: 27017
+      targetPort: 27017
+  selector:
+    app: mongodb
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: codearena
+  labels:
+    app: redis
+    tier: message-broker
+spec:
+  serviceName: redis
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+        tier: message-broker
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.2-alpine
+          ports:
+            - containerPort: 6379
+              name: redis
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: codearena
+  labels:
+    app: redis
+spec:
+  ports:
+    - port: 6379
+      targetPort: 6379
+  selector:
+    app: redis

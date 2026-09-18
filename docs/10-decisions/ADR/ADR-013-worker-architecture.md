@@ -74,9 +74,8 @@ Establish a robust, standalone Submission Worker Architecture adhering to the ca
 - **Concurrent Duplicate Claim Prevention**: Atomic database claiming combined with BullMQ `jobId = submissionId` prevents concurrent duplicate claims of the same submission across workers.
 - **Clear Failure Semantics**: User code verdicts are never retried unnecessarily, while transient infrastructure failures automatically recover through backoff retries.
 - **Graceful Deployment**: Workers drain active jobs during container redeployment without dropping executions or leaving stale `RUNNING` submissions.
-- **Clean Scope Boundary**: Establishes a rock-solid single-worker architecture ready for Phase 15 (Multiple Workers / Concurrency).
+- **Process Isolation**: Establishes a dedicated worker daemon boundary completely separate from the Express HTTP API.
 
 ### Negative / Trade-offs
 
 - **Database Hydration Overhead**: Worker queries MongoDB to hydrate code and test cases for each job. This is an intentional security and architectural trade-off to maintain minimal Redis payload size (~50 bytes) and keep MongoDB as the single source of truth.
-- **Single-Worker Scalability Boundary**: Concurrency is limited by the local worker process resources. Horizontal scaling and multi-worker replicas are deferred to Phase 15 and Phase 16.

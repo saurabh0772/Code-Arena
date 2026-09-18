@@ -28,3 +28,8 @@ Thumbs.db
 dist/
 build/
 coverage/
+
+# Kubernetes uncommitted secrets
+k8s/**/secrets.yaml
+k8s/**/secrets.local.yaml
+!k8s/**/secrets.example.yaml

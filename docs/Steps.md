@@ -18,10 +18,10 @@
 | **Phase 12** | Async Submission Processing | **COMPLETE** |
 | **Phase 13** | Redis + Queue | **COMPLETE** |
 | **Phase 14** | Worker Architecture | **COMPLETE** |
-| **Phase 15** | Multiple Workers / Concurrency | **FUTURE** |
-| **Phase 16** | Horizontal Scaling | **FUTURE** |
-| **Phase 17** | Distributed Execution Architecture | **FUTURE** |
-| **Phase 18** | Advanced Infrastructure | **FUTURE** |
+| **Phase 15** | Multiple Workers / Concurrency | **COMPLETE** |
+| **Phase 16** | Horizontal Scaling | **COMPLETE** |
+| **Phase 17** | Distributed Execution Architecture | **COMPLETE** |
+| **Phase 18** | Advanced Infrastructure | **IMPLEMENTED & TESTED LOCALLY** |
 
 > **Architecture Note**: CodeArena is structured as a high-performance Modular Monolith with asynchronous submission processing via Redis, BullMQ, and a dedicated Worker daemon, backed by isolated Docker sandboxes (`codearena-sandbox:v1`).
 
@@ -60,17 +60,33 @@
 - **Idempotent Graceful Shutdown**: Traps `SIGTERM` and `SIGINT`, guards against duplicate signals, drains active jobs, disconnects Redis and MongoDB cleanly, and enforces a 10-second safety timeout.
 - **Execution Observability & Timing**: Emits structured JSON events (`submission_job_started`, `submission_job_completed`) with execution duration tracking (`durationMs`) while completely sanitizing source code, credentials, and secrets.
 
-### Phase 15 — Multiple Workers / Concurrency [FUTURE]
-- Multi-worker concurrency, thread pools, and parallel execution.
+### Phase 15 — Multiple Workers / Concurrency [COMPLETE]
+- **Configurable Worker Concurrency**: Scalable parallel execution slots within each worker daemon instance controlled via `WORKER_CONCURRENCY`.
+- **Fair Job Distribution**: BullMQ FIFO fairness across concurrent workers.
+- **Idempotency & Lock-Free Coordination**: Non-blocking atomic MongoDB updates coordinate distributed consumers safely.
 
-### Phase 16 — Horizontal Scaling [FUTURE]
-- Horizontal autoscaling, cluster management, and cross-node coordination.
+### Phase 16 — Horizontal Scaling [COMPLETE]
+- **Stateless API Cluster**: Multiple API instances running behind Nginx load balancer with health check failover.
+- **Distributed Redis Rate Limiting**: Global shared rate limiting across all API instances via `rate-limit-redis`.
+- **Zero Process-Local State**: Stateless JWT authentication and shared queue across cluster nodes.
 
-### Phase 17 — Distributed Execution Architecture [FUTURE]
-- Distributed execution clusters, multi-region routing, and advanced scheduling.
+### Phase 17 — Distributed Execution Architecture [COMPLETE]
+- **Collision-Resistant Worker Identity**: Unique worker identifiers generated with hostname, pid, and crypto random suffix.
+- **Ephemeral Redis Registry**: Ephemeral worker registration with 15s TTL and 5s periodic heartbeats.
+- **Stale Ownership Recovery**: Atomic recovery of orphaned RUNNING submissions from crashed workers after 30s.
+- **Backend Docker Isolation**: Backend service strictly does NOT mount `/var/run/docker.sock`.
 
-### Phase 18 — Advanced Infrastructure [FUTURE]
-- Zero-trust networks, advanced telemetry, and multi-cloud sandboxing.
+### Phase 18 — Advanced Infrastructure [IMPLEMENTED & TESTED LOCALLY]
+- **Declarative Kubernetes Architecture**: Kustomize-based manifests (`k8s/base/`, `k8s/overlays/local/`, `k8s/overlays/production/`) orchestrating stateless Backend API replicas, autonomous Worker daemons (using `codearena-backend:latest`), and React Frontend SPA.
+- **Secrets Management**: Base kustomization strictly excludes template secrets (`secrets.example.yaml`); local overlay uses non-sensitive demonstration secrets; production overlay references External Secrets Operator (ESO).
+- **Docker Socket Security Boundary**: Backend API maintains zero Docker daemon access. Workers mount Docker as an explicitly designated security-sensitive capability isolated to dedicated execution node pools in production (`requiredDuringSchedulingIgnoredDuringExecution` with `dedicated=codearena-worker:NoSchedule`).
+- **Dual-Signal Autoscaling**: Backend API autoscales on CPU (70%) and Memory (80%) via HPA; Worker tier autoscales on queue backlog depth via KEDA (`ScaledObject` targeting pinned BullMQ v6 Redis key `bull:submission-execution:wait`).
+- **Network Segmentation & Least-Privilege Policies**: Least-privilege `NetworkPolicy` resources with default-deny rules and explicit CoreDNS (`UDP/TCP 53`) egress. Backend ingress is restricted with explicit `from:` selectors; production datastore egress is restricted to private cloud CIDRs without `0.0.0.0/0`.
+- **Production Observability & Prometheus Histograms**: `GET /metrics` exporter with normalized route templates, true latency histograms (`_bucket`, `_sum`, `_count`), bounded non-blocking execution (<500ms when Redis is down), and zero high-cardinality labels, paired with a curated Grafana dashboard calculating P95/P99 latency.
+- **W3C Trace Context Propagation**: Propagates `traceparent` across HTTP → Queue → Worker → Execution while strictly preserving the BullMQ business payload contract `{ submissionId }`.
+- **MongoDB HA Configuration**: Supports `replicaSet`, `readPreference`, and `retryWrites` with fail-fast validation without silent downgrade to standalone.
+- **Sandbox Runtime Abstraction**: Introduces `ExecutionRuntime` contract with active `DockerRuntime` and documented experimental stubs for `GVisorRuntime` and `FirecrackerRuntime`.
+- **Strict Verification Semantics**: Verified via automated 6-tier verification script (`scripts/verify-phase18.js`) and comprehensive regression suite (`tests/phase18.test.js`).
 
 ---
 

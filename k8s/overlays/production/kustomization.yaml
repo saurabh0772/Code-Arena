@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: codearena
+
+bases:
+  - ../../base
+
+resources:
+  - external-secrets.yaml
+
+patches:
+  - path: patch-resources.yaml
+  - path: patch-worker-affinity.yaml
+  - path: patch-configmap.yaml
+  - path: patch-production-network-policy.yaml
+  - path: patch-ingress.yaml
+
+images:
+  - name: codearena-backend
+    newName: ghcr.io/saurabh0772/codearena-backend
+    newTag: v1.0.0

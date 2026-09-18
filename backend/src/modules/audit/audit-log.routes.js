@@ -11,4 +11,7 @@ router.get('/audit-logs', authenticate, authorize('ADMIN'), auditLogController.g
 // GET /api/v1/admin/queue-metrics - ADMIN only
 router.get('/queue-metrics', authenticate, authorize('ADMIN'), auditLogController.getQueueMetrics);
 
+// GET /api/v1/admin/workers - ADMIN only (Phase 17 Worker Registry)
+router.get('/workers', authenticate, authorize('ADMIN'), auditLogController.getWorkers);
+
 module.exports = router;

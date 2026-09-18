@@ -12,9 +12,10 @@ const logger = require('../../utils/logger');
  *
  * @param {Object} data - Validated payload { problemId, language, sourceCode }
  * @param {Object} authenticatedUser - req.user object
+ * @param {Object} [options={}] Optional options (e.g. traceparent for W3C trace propagation)
  * @returns {Promise<Object>} Queued submission safe object
  */
-const createSubmission = async (data, authenticatedUser) => {
+const createSubmission = async (data, authenticatedUser, options = {}) => {
   const { problemId, language, sourceCode } = data;
 
   const problem = await Problem.findById(problemId);
@@ -75,13 +76,16 @@ const createSubmission = async (data, authenticatedUser) => {
 
   // 3. Enqueue minimal payload { submissionId } into BullMQ submission queue
   try {
-    await submissionQueue.enqueueSubmission(submission._id.toString());
+    await submissionQueue.enqueueSubmission(submission._id.toString(), {
+      traceparent: options.traceparent
+    });
 
     logger.info('submission_created_and_queued', {
       submissionId: submission._id.toString(),
       problemId: problem._id.toString(),
       userId: authenticatedUser._id.toString(),
-      language
+      language,
+      traceparent: options.traceparent || null
     });
 
     return submission.toSafeObject();

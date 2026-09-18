@@ -1,0 +1,92 @@
+# ==============================================================================
+# Production NetworkPolicy Overrides: Managed Datastores Segmentation
+# ==============================================================================
+# Assumptions:
+# 1. Managed MongoDB (Atlas / DocumentDB) is hosted in dedicated VPC Peering or
+#    AWS PrivateLink subnet CIDR: 10.100.0.0/16 on port 27017.
+# 2. Managed Redis (AWS ElastiCache / Redis Cloud) is hosted in dedicated cloud
+#    subnet CIDR: 10.200.0.0/16 on port 6379.
+# 3. NO unrestricted 0.0.0.0/0 egress is allowed for backend or worker pods.
+# 4. In-cluster pod labels (app: mongodb, app: redis) from local demo are replaced
+#    with these least-privilege cloud IP blocks.
+# ==============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-network-policy
+  namespace: codearena
+spec:
+  podSelector:
+    matchLabels:
+      app: codearena-backend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Accept HTTP traffic strictly from frontend or ingress controller
+    - from:
+        - podSelector:
+            matchLabels:
+              app: codearena-frontend
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 5000
+  egress:
+    # Egress to Approved Managed MongoDB Endpoint (e.g. Atlas VPC Peering / PrivateLink)
+    - to:
+        - ipBlock:
+            cidr: 10.100.0.0/16
+      ports:
+        - protocol: TCP
+          port: 27017
+    # Egress to Approved Managed Redis Endpoint (e.g. AWS ElastiCache / Redis Cloud)
+    - to:
+        - ipBlock:
+            cidr: 10.200.0.0/16
+      ports:
+        - protocol: TCP
+          port: 6379
+    # DNS Egress to CoreDNS
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: worker-network-policy
+  namespace: codearena
+spec:
+  podSelector:
+    matchLabels:
+      app: codearena-worker
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: [] # Pure consumer daemon — zero incoming network connections
+  egress:
+    # Egress to Approved Managed MongoDB Endpoint
+    - to:
+        - ipBlock:
+            cidr: 10.100.0.0/16
+      ports:
+        - protocol: TCP
+          port: 27017
+    # Egress to Approved Managed Redis Endpoint
+    - to:
+        - ipBlock:
+            cidr: 10.200.0.0/16
+      ports:
+        - protocol: TCP
+          port: 6379
+    # DNS Egress to CoreDNS
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
