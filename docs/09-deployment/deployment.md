@@ -20,35 +20,42 @@ The deployment architecture should keep the application simple for the MVP while
 
 ---
 
-# 3. MVP Deployment Architecture
+# 3. Deployment Architecture
 
-The MVP consists of:
+The deployment consists of:
 
 ```text
-Frontend
-Backend
+Frontend (React SPA / Nginx)
+Backend (Express API)
+Redis (Queue Transport)
+Worker (Autonomous BullMQ Consumer)
 Execution Engine
 MongoDB
-Docker Sandbox
+Docker Sandbox (codearena-sandbox:v1)
 ```
 
 High-level deployment:
 
 ```text
 Internet
-   |
-   v
-Frontend
-   |
-   v
-Backend
-   |
-   +----------> MongoDB
-   |
-   +----------> Execution Engine
-                    |
-                    v
-               Docker Sandbox
+   │
+   ▼
+Frontend (Nginx)
+   │
+   ▼
+Backend API
+   ├───► MongoDB
+   │
+   └───► Redis 7.2 (Queue Transport)
+            │
+            ▼
+         Worker Daemon
+            │
+            ▼
+         Execution Engine
+            │
+            ▼
+         Docker Sandbox (codearena-sandbox:v1)
 ```
 
 ---
@@ -57,11 +64,13 @@ Backend
 
 | Component | Responsibility |
 |---|---|
-| Frontend | User interface |
-| Backend | API and business logic |
-| Execution Engine | Code execution orchestration |
-| MongoDB | Application data |
-| Docker | Application containers + execution sandbox |
+| Frontend | User interface (SPA served via Nginx) |
+| Backend | API, authentication, RBAC, queue producer |
+| Redis | In-memory message broker & queue transport for BullMQ |
+| Worker | Asynchronous queue consumer running execution tasks |
+| Execution Engine | Multi-language compilation and sandbox runner |
+| MongoDB | Application database (users, problems, test cases, submissions) |
+| Docker | Host container engine + ephemeral execution sandboxes |
 
 ---
 
@@ -146,24 +155,21 @@ A simplified production architecture:
 
 ```text
                     Internet
-                       |
-                       v
-                  Frontend
-                       |
-                      HTTPS
-                       |
-                       v
-                    Backend
-                   /       \
-                  /         \
-                 v           v
-            MongoDB     Execution Engine
-                            |
-                            v
-                       Docker Runtime
-                            |
-                            v
-                         Sandbox
+                       │
+                       ▼
+                  Frontend (Nginx)
+                       │ HTTPS
+                       ▼
+                  Backend API
+                 /     │     \
+                ▼      ▼      ▼
+           MongoDB   Redis  Execution Engine
+                       │        │
+                       ▼        ▼
+                    Worker  Docker Runtime
+                                │
+                                ▼
+                             Sandbox (codearena-sandbox:v1)
 ```
 
 ---
@@ -173,17 +179,19 @@ A simplified production architecture:
 Publicly accessible components:
 
 ```text
-Frontend
-Backend API
+Frontend (Port 5173 / Nginx 80)
+Backend API (Port 5000)
 ```
 
 Private components:
 
 ```text
-MongoDB
+MongoDB (Port 27017)
+Redis (Container 6379, Host 6380)
+Worker Daemon
 Execution Engine
-Docker Runtime
-Sandbox Infrastructure
+Docker Runtime (/var/run/docker.sock)
+Sandbox Containers (Isolated --network none)
 ```
 
 The exact exposure depends on the hosting environment.
@@ -212,7 +220,7 @@ Each environment should use separate:
 
 # 12. Environment Variables
 
-The Backend may require:
+The Backend and Worker require:
 
 ```text
 NODE_ENV
@@ -220,7 +228,11 @@ PORT
 MONGODB_URI
 JWT_SECRET
 FRONTEND_URL
-EXECUTION_ENGINE_URL
+REDIS_HOST
+REDIS_PORT
+WORKER_CONCURRENCY
+CODEARENA_WORKSPACE_BASE
+CODEARENA_SANDBOX_IMAGE
 ```
 
 Secrets must not be committed to Git.

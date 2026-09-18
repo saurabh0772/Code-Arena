@@ -6,9 +6,14 @@ import { Card, CardContent } from '../ui/Card';
 export function VerdictCard({ submission }) {
   if (!submission) return null;
 
-  const config = getVerdictConfig(submission.verdict);
+  const isFailed = submission.status === 'FAILED';
+  const config = isFailed ? getVerdictConfig('FAILED') : getVerdictConfig(submission.verdict);
 
   const getVerdictIcon = () => {
+    if (isFailed) {
+      return <AlertTriangle className="w-6 h-6 text-rose-400" />;
+    }
+
     switch (submission.verdict) {
       case 'ACCEPTED':
         return <CheckCircle2 className="w-6 h-6 text-emerald-400" />;

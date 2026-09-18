@@ -25,7 +25,7 @@ const createProblem = async (req, res, next) => {
  */
 const updateProblem = async (req, res, next) => {
   try {
-    const problem = await problemService.updateProblem(req.params.problemId, req.body);
+    const problem = await problemService.updateProblem(req.params.problemId, req.body, req.user);
 
     res.status(200).json({
       success: true,
@@ -44,7 +44,7 @@ const updateProblem = async (req, res, next) => {
  */
 const deactivateProblem = async (req, res, next) => {
   try {
-    const result = await problemService.deactivateProblem(req.params.problemId);
+    const result = await problemService.deactivateProblem(req.params.problemId, req.user);
 
     res.status(200).json({
       success: true,
@@ -61,13 +61,15 @@ const deactivateProblem = async (req, res, next) => {
  */
 const listProblems = async (req, res, next) => {
   try {
-    const problems = await problemService.listProblems(req.query);
+    const result = await problemService.listProblems(req.query, req.user);
 
     res.status(200).json({
       success: true,
       data: {
-        problems
-      }
+        problems: result.problems,
+        pagination: result.pagination
+      },
+      pagination: result.pagination
     });
   } catch (error) {
     next(error);

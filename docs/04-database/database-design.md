@@ -326,20 +326,14 @@ Submission
 
 # 14. Submission Status
 
-Initial statuses:
+Phase 12 asynchronous lifecycle statuses:
 
 ```text
-SUBMITTED
+PENDING
+QUEUED
 RUNNING
 COMPLETED
-```
-
-Future asynchronous execution may introduce:
-
-```text
-QUEUED
-EXECUTING
-EVALUATING
+FAILED
 ```
 
 ---

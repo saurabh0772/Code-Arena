@@ -1,5 +1,6 @@
 const config = require('./config/env');
 const { connectDB, disconnectDB } = require('./config/database');
+const { closeQueue } = require('./queues/submission.queue');
 const app = require('./app');
 
 let server;
@@ -25,10 +26,12 @@ const shutdown = async (signal) => {
   if (server) {
     server.close(async () => {
       console.log('HTTP server closed');
+      await closeQueue();
       await disconnectDB();
       process.exit(0);
     });
   } else {
+    await closeQueue();
     await disconnectDB();
     process.exit(0);
   }

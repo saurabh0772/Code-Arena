@@ -379,20 +379,14 @@ JAVASCRIPT
 
 ### Submission Status
 
-MVP:
+Phase 12:
 
 ``` text
-SUBMITTED
+PENDING
+QUEUED
 RUNNING
 COMPLETED
-```
-
-Future:
-
-``` text
-QUEUED
-EXECUTING
-EVALUATING
+FAILED
 ```
 
 ### Verdicts

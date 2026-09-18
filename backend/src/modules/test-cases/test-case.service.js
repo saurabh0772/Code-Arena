@@ -1,14 +1,16 @@
 const TestCase = require('./test-case.model');
 const Problem = require('../problems/problem.model');
 const AppError = require('../../utils/app-error');
+const { logAuditAction } = require('../audit/audit-log.service');
 
 /**
  * Create a new test case for a problem (ADMIN only)
  * @param {string} problemId
  * @param {Object} data - Validated test case payload
+ * @param {Object} [user] - Authenticated admin user
  * @returns {Promise<Object>} Created test case object
  */
-const createTestCase = async (problemId, data) => {
+const createTestCase = async (problemId, data, user = null) => {
   const problem = await Problem.findById(problemId);
   if (!problem) {
     throw new AppError('Problem not found', 404);
@@ -19,6 +21,20 @@ const createTestCase = async (problemId, data) => {
     problemId,
     isActive: true
   });
+
+  if (user) {
+    await logAuditAction({
+      userId: user._id || user.id,
+      action: 'TEST_CASE_CREATED',
+      targetType: 'TestCase',
+      targetId: testCase._id,
+      details: {
+        problemId,
+        visibility: testCase.visibility,
+        order: testCase.order
+      }
+    });
+  }
 
   return testCase.toSafeObject();
 };
@@ -85,9 +101,10 @@ const getTestCaseById = async (testCaseId, userRole) => {
  * Update an existing test case (ADMIN only)
  * @param {string} testCaseId
  * @param {Object} updateData - Validated update fields
+ * @param {Object} [user] - Authenticated admin user
  * @returns {Promise<Object>} Updated test case object
  */
-const updateTestCase = async (testCaseId, updateData) => {
+const updateTestCase = async (testCaseId, updateData, user = null) => {
   const testCase = await TestCase.findById(testCaseId);
 
   if (!testCase) {
@@ -95,23 +112,37 @@ const updateTestCase = async (testCaseId, updateData) => {
   }
 
   const allowedFields = ['input', 'expectedOutput', 'visibility', 'order'];
+  const changedFields = {};
 
   allowedFields.forEach((field) => {
     if (updateData[field] !== undefined) {
       testCase[field] = updateData[field];
+      changedFields[field] = updateData[field];
     }
   });
 
   await testCase.save();
+
+  if (user) {
+    await logAuditAction({
+      userId: user._id || user.id,
+      action: 'TEST_CASE_UPDATED',
+      targetType: 'TestCase',
+      targetId: testCase._id,
+      details: changedFields
+    });
+  }
+
   return testCase.toSafeObject();
 };
 
 /**
  * Deactivate (soft delete) a test case (ADMIN only)
  * @param {string} testCaseId
+ * @param {Object} [user] - Authenticated admin user
  * @returns {Promise<Object>} Confirmation message
  */
-const deactivateTestCase = async (testCaseId) => {
+const deactivateTestCase = async (testCaseId, user = null) => {
   const testCase = await TestCase.findById(testCaseId);
 
   if (!testCase) {
@@ -121,6 +152,16 @@ const deactivateTestCase = async (testCaseId) => {
   if (testCase.isActive) {
     testCase.isActive = false;
     await testCase.save();
+
+    if (user) {
+      await logAuditAction({
+        userId: user._id || user.id,
+        action: 'TEST_CASE_DELETED',
+        targetType: 'TestCase',
+        targetId: testCase._id,
+        details: { problemId: testCase.problemId }
+      });
+    }
   }
 
   return { message: 'Test case deactivated successfully' };

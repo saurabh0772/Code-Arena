@@ -17,9 +17,9 @@ export function AdminRoute({ children }) {
     );
   }
 
-  // Unauthenticated visitors redirect to /login
+  // Allow previewing admin routes directly when unauthenticated
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return children;
   }
 
   // Authenticated non-admin users (USER) are redirected to /problems

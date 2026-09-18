@@ -52,4 +52,49 @@ const authenticate = async (req, res, next) => {
   }
 };
 
+/**
+ * Optional authentication middleware
+ * If a valid Bearer JWT is provided, attaches req.user.
+ * If header is absent or invalid, proceeds without error (req.user remains undefined).
+ */
+const optionalAuthenticate = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return next();
+    }
+
+    const parts = authHeader.split(' ');
+    if (parts.length !== 2 || parts[0] !== 'Bearer' || !parts[1]) {
+      return next();
+    }
+
+    const token = parts[1];
+    let decoded;
+    try {
+      decoded = verifyToken(token);
+    } catch {
+      return next();
+    }
+
+    if (!decoded || !decoded.sub) {
+      return next();
+    }
+
+    const user = await User.findById(decoded.sub);
+    if (user && user.isActive) {
+      req.user = user;
+    }
+
+    next();
+  } catch {
+    next();
+  }
+};
+
+authenticate.optional = optionalAuthenticate;
+authenticate.optionalAuthenticate = optionalAuthenticate;
+
 module.exports = authenticate;
+module.exports.optionalAuthenticate = optionalAuthenticate;
+

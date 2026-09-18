@@ -439,56 +439,49 @@ This allows the internal execution architecture to evolve.
 
 ---
 
-# 21. MVP Submission Behavior
+# 21. Asynchronous Submission Behavior
 
-The MVP may execute submissions synchronously.
-
-```text
-POST /submissions
-       |
-       v
-Execute
-       |
-       v
-Evaluate
-       |
-       v
-Return Result
-```
-
-Future versions may use asynchronous execution.
+CodeArena uses asynchronous submission processing:
 
 ```text
-POST /submissions
-       |
-       v
-Create Submission
-       |
-       v
-Queue
-       |
-       v
-Worker
+POST /api/v1/submissions
+       │
+       ▼
+Create Submission (PENDING/QUEUED)
+       │
+       ▼
+Enqueue to Redis (BullMQ)
+       │
+       ▼
+Worker Dequeues & Claims (RUNNING)
+       │
+       ▼
+Execute in Isolated Docker Sandbox
+       │
+       ▼
+Store Result in MongoDB (COMPLETED/FAILED)
 ```
 
 ---
 
-# 22. Future Asynchronous Response
+# 22. Asynchronous Response & Polling
 
-A future asynchronous submission may return:
+Upon submitting code, the API returns immediately with a `201 Created` status:
 
 ```json
 {
   "success": true,
   "data": {
-    "id": "submission123",
+    "id": "65f02c91a4e21d3f90e4a112",
+    "problemId": "65f02c91a4e21d3f90e4a100",
+    "language": "PYTHON",
     "status": "QUEUED",
     "verdict": "PENDING"
   }
 }
 ```
 
-The frontend can then retrieve the submission status separately.
+The frontend polls `GET /api/v1/submissions/:submissionId` until the worker finishes execution and persists the completed evaluation.
 
 ---
 

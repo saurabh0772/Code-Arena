@@ -24,6 +24,9 @@ export const submissionService = {
     if (params.page) query.append('page', params.page);
     if (params.limit) query.append('limit', params.limit);
     if (params.problemId) query.append('problemId', params.problemId);
+    if (params.language) query.append('language', params.language);
+    if (params.verdict) query.append('verdict', params.verdict);
+    if (params.includeCode !== undefined) query.append('includeCode', params.includeCode);
 
     const endpoint = `/submissions/me${query.toString() ? `?${query.toString()}` : ''}`;
     const res = await apiClient.get(endpoint);

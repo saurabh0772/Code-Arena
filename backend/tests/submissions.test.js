@@ -18,6 +18,8 @@ const Problem = require('../src/modules/problems/problem.model');
 const Submission = require('../src/modules/submissions/submission.model');
 const TestCase = require('../src/modules/test-cases/test-case.model');
 const { hashPassword } = require('../src/utils/password');
+const { closeQueue } = require('../src/queues/submission.queue');
+const { processSubmission } = require('../src/workers/submission.worker');
 
 describe('Phase 6 Submission Module Test Suite', () => {
   let user1;
@@ -42,6 +44,7 @@ describe('Phase 6 Submission Module Test Suite', () => {
       await TestCase.deleteMany({});
       await disconnectDB();
     }
+    await closeQueue();
   });
 
   beforeEach(async () => {
@@ -152,10 +155,16 @@ describe('Phase 6 Submission Module Test Suite', () => {
       assert.equal(res.body.data.submission.problemId, activeProblem._id.toString());
       assert.equal(res.body.data.submission.language, 'CPP');
       assert.equal(res.body.data.submission.sourceCode, '#include <iostream>\nint main() { std::cout << 1; return 0; }');
-      assert.equal(res.body.data.submission.status, 'COMPLETED');
-      assert.equal(res.body.data.submission.verdict, 'ACCEPTED');
-      assert.equal(res.body.data.submission.testsPassed, 1);
-      assert.equal(res.body.data.submission.totalTests, 1);
+      assert.equal(res.body.data.submission.status, 'QUEUED');
+      assert.equal(res.body.data.submission.verdict, 'PENDING');
+
+      // Process via worker to verify full pipeline
+      await processSubmission({ data: { submissionId: res.body.data.submission.id } });
+      const completed = await Submission.findById(res.body.data.submission.id);
+      assert.equal(completed.status, 'COMPLETED');
+      assert.equal(completed.verdict, 'ACCEPTED');
+      assert.equal(completed.testsPassed, 1);
+      assert.equal(completed.totalTests, 1);
     });
 
     it('ADMIN can also create a submission (201 Created)', async () => {
@@ -404,10 +413,15 @@ describe('Phase 6 Submission Module Test Suite', () => {
         });
 
       assert.equal(res.status, 201);
-      assert.equal(res.body.data.submission.status, 'COMPLETED');
-      assert.equal(res.body.data.submission.verdict, 'ACCEPTED');
-      assert.equal(res.body.data.submission.testsPassed, 2);
-      assert.equal(res.body.data.submission.totalTests, 2); // strictly 2 active tests
+      assert.equal(res.body.data.submission.status, 'QUEUED');
+      assert.equal(res.body.data.submission.verdict, 'PENDING');
+
+      await processSubmission({ data: { submissionId: res.body.data.submission.id } });
+      const completed = await Submission.findById(res.body.data.submission.id);
+      assert.equal(completed.status, 'COMPLETED');
+      assert.equal(completed.verdict, 'ACCEPTED');
+      assert.equal(completed.testsPassed, 2);
+      assert.equal(completed.totalTests, 2); // strictly 2 active tests
     });
   });
 
@@ -454,10 +468,17 @@ describe('Phase 6 Submission Module Test Suite', () => {
         });
 
       assert.equal(res.status, 201);
-      assert.equal(res.body.data.submission.status, 'COMPLETED');
-      assert.equal(res.body.data.submission.verdict, 'ACCEPTED');
-      assert.equal(res.body.data.submission.testsPassed, 1);
-      assert.equal(res.body.data.submission.totalTests, 1);
+      assert.equal(res.body.data.submission.status, 'QUEUED');
+      assert.equal(res.body.data.submission.verdict, 'PENDING');
+      assert.equal(res.body.data.submission.testsPassed, null);
+      assert.equal(res.body.data.submission.totalTests, null);
+
+      await processSubmission(res.body.data.submission.id);
+      const completed = await Submission.findById(res.body.data.submission.id);
+      assert.equal(completed.status, 'COMPLETED');
+      assert.equal(completed.verdict, 'ACCEPTED');
+      assert.equal(completed.testsPassed, 1);
+      assert.equal(completed.totalTests, 1);
     });
   });
 
@@ -473,7 +494,7 @@ describe('Phase 6 Submission Module Test Suite', () => {
         problemId: activeProblem._id,
         language: 'CPP',
         sourceCode: 'code for user1',
-        status: 'SUBMITTED',
+        status: 'COMPLETED',
         verdict: 'PENDING'
       });
     });
@@ -549,7 +570,7 @@ describe('Phase 6 Submission Module Test Suite', () => {
           problemId: activeProblem._id,
           language: 'CPP',
           sourceCode: 'sub1 user1',
-          status: 'SUBMITTED',
+          status: 'COMPLETED',
           verdict: 'PENDING'
         },
         {
@@ -557,7 +578,7 @@ describe('Phase 6 Submission Module Test Suite', () => {
           problemId: activeProblem._id,
           language: 'PYTHON',
           sourceCode: 'sub2 user1',
-          status: 'SUBMITTED',
+          status: 'COMPLETED',
           verdict: 'PENDING'
         }
       ]);
@@ -568,7 +589,7 @@ describe('Phase 6 Submission Module Test Suite', () => {
         problemId: activeProblem._id,
         language: 'JAVASCRIPT',
         sourceCode: 'sub1 user2',
-        status: 'SUBMITTED',
+        status: 'COMPLETED',
         verdict: 'PENDING'
       });
     });

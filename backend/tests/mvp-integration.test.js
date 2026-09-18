@@ -17,6 +17,8 @@ const Problem = require('../src/modules/problems/problem.model');
 const TestCase = require('../src/modules/test-cases/test-case.model');
 const Submission = require('../src/modules/submissions/submission.model');
 const { hashPassword } = require('../src/utils/password');
+const { closeQueue } = require('../src/queues/submission.queue');
+const { processSubmission } = require('../src/workers/submission.worker');
 
 describe('Phase 8 — CodeArena MVP Integration Test Suite', () => {
   let user1;
@@ -39,6 +41,7 @@ describe('Phase 8 — CodeArena MVP Integration Test Suite', () => {
     if (mongoose.connection.readyState !== 0) {
       await mongoose.disconnect();
     }
+    await closeQueue();
   });
 
   beforeEach(async () => {
@@ -168,6 +171,7 @@ int main() {
     assert.ok(postRes.body.data.submission.id);
 
     const submissionId = postRes.body.data.submission.id;
+    await processSubmission(submissionId);
 
     // Retrieve submission via GET
     const getRes = await request(app)
@@ -221,6 +225,7 @@ int main() {
 
     assert.equal(postRes.status, 201);
     const submissionId = postRes.body.data.submission.id;
+    await processSubmission(submissionId);
 
     const getRes = await request(app)
       .get(`/api/v1/submissions/${submissionId}`)
@@ -267,6 +272,7 @@ int main() {
 
     assert.equal(postRes.status, 201);
     const submissionId = postRes.body.data.submission.id;
+    await processSubmission(submissionId);
 
     const getRes = await request(app)
       .get(`/api/v1/submissions/${submissionId}`)
@@ -314,6 +320,7 @@ int main() {
 
     assert.equal(postRes.status, 201);
     const submissionId = postRes.body.data.submission.id;
+    await processSubmission(submissionId);
 
     const getRes = await request(app)
       .get(`/api/v1/submissions/${submissionId}`)
@@ -373,6 +380,7 @@ int main() {
       });
 
     const submissionId = postRes.body.data.submission.id;
+    await processSubmission(submissionId);
 
     // 1. Hidden test affected verdict (failed hidden test -> WRONG_ANSWER)
     const getRes = await request(app)
@@ -425,6 +433,7 @@ int main() {
       });
 
     const submissionId = postRes.body.data.submission.id;
+    await processSubmission(submissionId);
 
     // Owner (user1) can access -> 200 OK
     const ownerRes = await request(app)
@@ -522,6 +531,7 @@ int main() {
       });
 
     const submissionId = postRes.body.data.submission.id;
+    await processSubmission(submissionId);
 
     const getRes = await request(app)
       .get(`/api/v1/submissions/${submissionId}`)
@@ -567,6 +577,9 @@ int main() {
         language: 'CPP',
         sourceCode: '#include <iostream>\nint main(){ std::cout<<0; return 0; }'
       });
+
+    await processSubmission(sub1Res.body.data.submission.id);
+    await processSubmission(sub2Res.body.data.submission.id);
 
     const get1 = await request(app)
       .get(`/api/v1/submissions/${sub1Res.body.data.submission.id}`)

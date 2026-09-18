@@ -2,6 +2,7 @@ const express = require('express');
 const problemController = require('./problem.controller');
 const authenticate = require('../../middleware/authenticate');
 const authorize = require('../../middleware/authorize');
+const { optionalAuthenticate } = require('../../middleware/authenticate');
 const {
   validateProblemId,
   validateCreateProblem,
@@ -11,8 +12,8 @@ const { problemTestCaseRouter } = require('../test-cases/test-case.routes');
 
 const router = express.Router();
 
-// List problems - Public
-router.get('/', problemController.listProblems);
+// List problems - Public with optional authentication for derived solved status
+router.get('/', optionalAuthenticate, problemController.listProblems);
 
 // Get single problem - Public
 router.get('/:problemId', validateProblemId, problemController.getProblem);

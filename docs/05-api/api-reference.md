@@ -184,6 +184,155 @@ Required
 
 ---
 
+## 4.2 Get User Coding Statistics
+
+```text
+GET /api/v1/users/me/stats
+```
+
+### Authentication
+
+Required (Bearer Token)
+
+### Success
+
+```text
+200 OK
+```
+
+```json
+{
+  "success": true,
+  "data": {
+    "totalProblemsSolved": 5,
+    "easySolved": 3,
+    "mediumSolved": 2,
+    "hardSolved": 0,
+    "totalSubmissions": 12,
+    "acceptedSubmissions": 6,
+    "wrongAnswerSubmissions": 4,
+    "compilationErrorSubmissions": 1,
+    "runtimeErrorSubmissions": 1,
+    "timeLimitExceededSubmissions": 0,
+    "memoryLimitExceededSubmissions": 0,
+    "acceptanceRate": 50.0
+  }
+}
+```
+
+### Possible Errors
+
+```text
+401 AUTHENTICATION_REQUIRED
+```
+
+---
+
+## 4.3 Get Solved Problems
+
+```text
+GET /api/v1/users/me/solved-problems
+```
+
+### Authentication
+
+Required (Bearer Token)
+
+### Query Parameters
+
+| Parameter | Required | Description |
+|---|---|---|
+| `page` | No | Page number (default: 1) |
+| `limit` | No | Results per page (default: 20, max: 100) |
+| `difficulty` | No | Filter by difficulty (`EASY`, `MEDIUM`, `HARD`) |
+
+### Success
+
+```text
+200 OK
+```
+
+```json
+{
+  "success": true,
+  "data": {
+    "problems": [
+      {
+        "id": "65f02c91a4e21d3f90e4a100",
+        "title": "Sum of Two Numbers",
+        "difficulty": "EASY",
+        "tags": ["math", "basics"],
+        "createdAt": "2026-09-17T10:00:00.000Z",
+        "solved": true
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "total": 1,
+      "totalPages": 1
+    }
+  },
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+```
+
+### Notes
+
+- Does not expose test cases or submitted source code.
+- Only problems with at least one `ACCEPTED` submission are returned.
+
+---
+
+## 4.4 Get Submission Activity Calendar
+
+```text
+GET /api/v1/users/me/activity
+```
+
+### Authentication
+
+Required (Bearer Token)
+
+### Query Parameters
+
+| Parameter | Required | Description |
+|---|---|---|
+| `range` | No | Aggregation time window (`30d`, `90d`, `1y`, `all`). Default: `1y` |
+
+### Success
+
+```text
+200 OK
+```
+
+```json
+{
+  "success": true,
+  "data": {
+    "range": "1y",
+    "totalSubmissions": 12,
+    "activity": [
+      {
+        "date": "2026-09-16",
+        "submissions": 4
+      },
+      {
+        "date": "2026-09-17",
+        "submissions": 8
+      }
+    ]
+  }
+}
+```
+
+---
+
 # 5. Problem Endpoints
 
 ## 5.1 List Problems
@@ -194,22 +343,24 @@ GET /api/v1/problems
 
 ### Authentication
 
-Public
+Public (Optional Authentication: when Bearer token is provided, derives `solved: true/false` per problem for authenticated user).
 
 ### Query Parameters
 
 | Parameter | Required | Description |
 |---|---|---|
-| `page` | No | Page number |
-| `limit` | No | Results per page |
-| `difficulty` | No | Filter by difficulty |
-| `tag` | No | Filter by tag |
-| `sort` | No | Sort field |
+| `page` | No | Page number (default: 1) |
+| `limit` | No | Results per page (default: 20, max: 100) |
+| `difficulty` | No | Filter by difficulty (`EASY`, `MEDIUM`, `HARD`) |
+| `tag` | No | Filter by single topic tag (alias for `tags`) |
+| `tags` | No | Filter by comma-separated topic tags |
+| `search` | No | Case-insensitive title search string |
+| `sort` | No | Sort field (`newest`, `oldest`, `title_asc`, `title_desc`) |
 
 ### Example
 
 ```text
-GET /api/v1/problems?page=1&limit=20&difficulty=MEDIUM
+GET /api/v1/problems?page=1&limit=20&difficulty=MEDIUM&tag=array&search=binary
 ```
 
 ### Success
@@ -221,28 +372,44 @@ GET /api/v1/problems?page=1&limit=20&difficulty=MEDIUM
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "id": "problem123",
-      "title": "Two Sum",
-      "difficulty": "EASY",
-      "tags": [
-        "ARRAY",
-        "HASHING"
-      ]
+  "data": {
+    "problems": [
+      {
+        "id": "65f02c91a4e21d3f90e4a100",
+        "title": "Two Sum",
+        "difficulty": "EASY",
+        "tags": ["array", "hashing"],
+        "solved": true,
+        "testCasesCount": 6,
+        "readiness": {
+          "isReady": true,
+          "publicCount": 2,
+          "hiddenCount": 4,
+          "totalCount": 6,
+          "missingRequirements": []
+        }
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "total": 1,
+      "totalPages": 1
     }
-  ],
+  },
   "pagination": {
     "page": 1,
     "limit": 20,
-    "total": 1
+    "total": 1,
+    "totalPages": 1
   }
 }
 ```
 
 ### Notes
 
-Only active problems should be returned to normal users.
+- Only active problems are returned to normal users.
+- `solved` returns `true` if the requesting authenticated user has solved the problem with `ACCEPTED`, or `false` otherwise (and `false` for unauthenticated visitors).
 
 ---
 
@@ -636,34 +803,9 @@ Source code size valid
 
 ---
 
-## 8.3 MVP Success Response
+## 8.3 Asynchronous Submission Response (201 Created)
 
-The MVP may execute synchronously.
-
-```text
-200 OK
-```
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": "submission123",
-    "status": "COMPLETED",
-    "verdict": "ACCEPTED",
-    "runtimeMs": 42,
-    "memoryKb": 10240,
-    "testsPassed": 5,
-    "totalTests": 5
-  }
-}
-```
-
----
-
-## 8.4 Future Async Response
-
-The API can later return:
+When a submission is submitted, the API validates the request, records the submission in MongoDB, and enqueues it to Redis / BullMQ:
 
 ```text
 201 Created
@@ -673,14 +815,46 @@ The API can later return:
 {
   "success": true,
   "data": {
-    "id": "submission123",
+    "id": "65f02c91a4e21d3f90e4a112",
+    "problemId": "65f02c91a4e21d3f90e4a100",
+    "language": "PYTHON",
     "status": "QUEUED",
-    "verdict": "PENDING"
+    "verdict": "PENDING",
+    "createdAt": "2026-09-17T10:00:00.000Z"
   }
 }
 ```
 
-The public API remains centered around the Submission resource.
+The client immediately polls `GET /api/v1/submissions/:submissionId` to track progress through `RUNNING` until reaching terminal state `COMPLETED` or `FAILED`.
+
+---
+
+## 8.4 Completed Submission Polling Result (200 OK)
+
+Once evaluated by the background worker inside the Docker sandbox, `GET /api/v1/submissions/:submissionId` returns:
+
+```text
+200 OK
+```
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "65f02c91a4e21d3f90e4a112",
+    "problemId": "65f02c91a4e21d3f90e4a100",
+    "language": "PYTHON",
+    "status": "COMPLETED",
+    "verdict": "ACCEPTED",
+    "runtimeMs": 42,
+    "memoryKb": 10240,
+    "passedTestCases": 6,
+    "totalTestCases": 6,
+    "createdAt": "2026-09-17T10:00:00.000Z",
+    "completedAt": "2026-09-17T10:00:02.150Z"
+  }
+}
+```
 
 ---
 
@@ -834,20 +1008,14 @@ until Java support is explicitly added.
 
 # 12. Submission Statuses
 
-Initial statuses:
+Implemented lifecycle statuses:
 
 ```text
-SUBMITTED
+PENDING
+QUEUED
 RUNNING
 COMPLETED
-```
-
-Future asynchronous statuses:
-
-```text
-QUEUED
-EXECUTING
-EVALUATING
+FAILED
 ```
 
 ---
@@ -1007,29 +1175,30 @@ This prevents users from directly requesting arbitrary code execution infrastruc
 
 ---
 
-# 20. API Evolution
+# 20. Submission Architecture
 
-The public API should remain stable while internal implementation evolves.
-
-MVP:
+The public API provides a non-blocking asynchronous contract backed by Redis and BullMQ:
 
 ```text
-POST /submissions
-      |
-      v
-Synchronous Execution
-```
-
-Future:
-
-```text
-POST /submissions
-      |
-      v
-Queue
-      |
-      v
-Worker
+POST /api/v1/submissions
+      │
+      ▼
+Persist PENDING / QUEUED
+      │
+      ▼
+Enqueue { submissionId } to Redis
+      │
+      ▼
+Worker Daemon Claim (RUNNING)
+      │
+      ▼
+Execution Engine & Docker Sandbox
+      │
+      ▼
+Persist Final Result (COMPLETED / FAILED)
+      ▲
+      │ Poll GET /api/v1/submissions/:id
+Frontend Client
 ```
 
 The frontend should continue using the Submission API rather than interacting with the queue directly.
@@ -1063,7 +1232,10 @@ Authentication
 └── POST /auth/logout
 
 Users
-└── GET /users/me
+├── GET /users/me
+├── GET /users/me/stats
+├── GET /users/me/solved-problems
+└── GET /users/me/activity
 
 Problems
 ├── GET /problems

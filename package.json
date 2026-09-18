@@ -11,6 +11,10 @@
     "test": "npm --prefix backend test && npm --prefix execution-engine test && npm --prefix frontend test",
     "test:backend": "npm --prefix backend test",
     "test:engine": "npm --prefix execution-engine test",
-    "test:frontend": "npm --prefix frontend test"
+    "test:frontend": "npm --prefix frontend test",
+    "seed": "npm --prefix backend run seed",
+    "worker": "npm --prefix backend run worker",
+    "docker:build-sandbox": "docker build -t codearena-sandbox:v1 -f execution-engine/Dockerfile.sandbox execution-engine",
+    "docker:up": "npm run docker:build-sandbox && docker compose up --build"
   }
 }

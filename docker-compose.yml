@@ -21,17 +21,62 @@ services:
       - MONGODB_URI=mongodb://mongodb:27017/codearena
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set}
       - CORS_ORIGIN=http://localhost:5173,http://localhost:80,http://127.0.0.1:5173
-      - CODEARENA_WORKSPACE_BASE=/tmp/codearena-workspaces
+      - CODEARENA_WORKSPACE_BASE=${CODEARENA_WORKSPACE_BASE:-/tmp/codearena-workspaces}
+      - CODEARENA_SANDBOX_IMAGE=codearena-sandbox:v1
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     volumes:
       # Trusted infrastructure boundary: Only the execution engine backend has Docker socket access
       - /var/run/docker.sock:/var/run/docker.sock
       # Shared DooD execution workspace between host Docker daemon and backend container
-      - ${CODEARENA_HOST_WORKSPACE_DIR:-/tmp/codearena-workspaces}:/tmp/codearena-workspaces:rw
+      - ${CODEARENA_HOST_WORKSPACE_DIR:-/tmp/codearena-workspaces}:${CODEARENA_WORKSPACE_BASE:-/tmp/codearena-workspaces}:rw
     depends_on:
       mongodb:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:5000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["node", "src/workers/submission.worker.js"]
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongodb:27017/codearena
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-2}
+      - CODEARENA_WORKSPACE_BASE=${CODEARENA_WORKSPACE_BASE:-/tmp/codearena-workspaces}
+      - CODEARENA_SANDBOX_IMAGE=codearena-sandbox:v1
+    volumes:
+      # Trusted infrastructure boundary: Worker requires Docker socket access to launch sandbox containers
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Shared DooD execution workspace
+      - ${CODEARENA_HOST_WORKSPACE_DIR:-/tmp/codearena-workspaces}:${CODEARENA_WORKSPACE_BASE:-/tmp/codearena-workspaces}:rw
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.2-alpine
+    restart: unless-stopped
+    expose:
+      - "6379"
+    ports:
+      # Bound strictly to 127.0.0.1; defaults to 6380 on host to prevent conflicts if host runs redis-server
+      - "127.0.0.1:${REDIS_HOST_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5

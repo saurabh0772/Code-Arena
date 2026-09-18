@@ -21,7 +21,7 @@ const { LIMITS } = require('../config/constants');
 const { sanitizeOutput } = require('../utils/sanitizer');
 const { ExecutionEngineError } = require('../utils/errors');
 
-const SANDBOX_IMAGE = process.env.CODEARENA_SANDBOX_IMAGE || 'codearena-sandbox:latest';
+const SANDBOX_IMAGE = process.env.CODEARENA_SANDBOX_IMAGE || 'codearena-sandbox:v1';
 
 let isDockerAvailableCache = null;
 

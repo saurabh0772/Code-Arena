@@ -89,6 +89,8 @@ const problemSchema = new mongoose.Schema(
 
 // Indexes matching documented query patterns
 problemSchema.index({ isActive: 1, difficulty: 1 });
+problemSchema.index({ isActive: 1, createdAt: -1 });
+problemSchema.index({ isActive: 1, difficulty: 1, createdAt: -1 });
 problemSchema.index({ tags: 1 });
 problemSchema.index({ createdAt: -1 });
 

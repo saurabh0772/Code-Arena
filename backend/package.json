@@ -6,9 +6,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "seed:admin": "node src/scripts/seed-admin.js",
-    "seed:problems": "node src/scripts/seed-problems.js",
-    "seed": "node src/scripts/seed-problems.js",
+    "seed": "node src/scripts/seed.js",
+    "worker": "node src/workers/submission.worker.js",
+    "docker:build-sandbox": "docker build -t codearena-sandbox:v1 -f ../execution-engine/Dockerfile.sandbox ../execution-engine",
     "test": "node --test --test-concurrency=1 tests/**/*.test.js"
   },
   "keywords": [
@@ -20,14 +20,17 @@
   "license": "ISC",
   "dependencies": {
     "argon2": "^0.45.1",
+    "bullmq": "^6.3.6",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
     "helmet": "^8.3.0",
+    "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.10.1",
-    "morgan": "^1.12.1"
+    "morgan": "^1.12.1",
+    "swagger-ui-dist": "^5.33.0"
   },
   "devDependencies": {
     "supertest": "^7.2.2"

@@ -646,7 +646,7 @@ except (PermissionError, OSError):
           `--tmpfs /tmp:rw,noexec,nosuid,size=32m ` +
           `-v ${testWs}:/workspace:rw ` +
           `-w /workspace ` +
-          `codearena-sandbox:latest sleep 30`
+          `${process.env.CODEARENA_SANDBOX_IMAGE || 'codearena-sandbox:v1'} sleep 30`
         );
 
         // Inspect running container directly via docker inspect JSON API

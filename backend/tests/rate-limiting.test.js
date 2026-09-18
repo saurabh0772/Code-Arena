@@ -65,6 +65,8 @@ describe('CodeArena Rate Limiting Suite', () => {
       await Problem.deleteMany({});
       await disconnectDB();
     }
+    const { closeQueue } = require('../src/queues/submission.queue');
+    await closeQueue();
   });
 
   it('enforces registration rate limit: rejects requests exceeding threshold with 429', async () => {

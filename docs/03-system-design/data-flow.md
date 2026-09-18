@@ -32,9 +32,15 @@ Controller
   v
 Service
   |
-  +------> Database
+  +------> MongoDB (Persistent State)
   |
-  +------> Execution Engine
+  +------> Redis / BullMQ (Asynchronous Queue)
+              |
+              v
+            Worker Daemon
+              |
+              v
+            Execution Engine Boundary
 ```
 
 ---
@@ -149,47 +155,46 @@ Flow:
 
 ```text
 User
-  |
-  v
-Frontend
-  |
-  v
-Backend
-  |
-  v
-Authentication
-  |
-  v
-Request Validation
-  |
-  v
+  │
+  ▼
+Frontend SPA
+  │
+  │ POST /api/v1/submissions
+  ▼
+Backend API
+  │
+  ▼
+Authentication & Request Validation
+  │
+  ▼
 Submission Service
-  |
-  v
-Create Submission
-  |
-  v
-Execution Adapter
+  ├── 1. Persist initial record in MongoDB (status: PENDING)
+  ├── 2. Transition & persist record in MongoDB (status: QUEUED)
+  ├── 3. Enqueue minimal payload to BullMQ / Redis ({ submissionId })
+  └── 4. Immediate HTTP 201 Response (status: QUEUED, verdict: PENDING) ──▶ Frontend
 ```
 
 ---
 
-# 7. Execution Request
+# 7. Asynchronous Execution Request & Worker Claim
 
-The Backend sends the required execution information to the Execution Engine.
-
-Conceptually:
+The Worker process autonomously dequeues jobs from Redis and claims them atomically:
 
 ```text
-Execution Request
-├── submissionId
-├── language
-├── sourceCode
-├── testCases
-└── resourceLimits
+Redis / BullMQ ('submission-execution' queue)
+       │
+       │ Job payload: { submissionId }
+       ▼
+Worker Daemon
+       │
+       ├── Atomic Claim: findOneAndUpdate({ _id: submissionId, status: 'QUEUED' }, { status: 'RUNNING' })
+       │
+       ▼
+Execution Engine Boundary
+       │
+       ▼
+Docker Sandbox (codearena-sandbox:v1)
 ```
-
-The exact internal format may change as the system evolves.
 
 ---
 
@@ -337,19 +342,16 @@ After execution:
 
 ```text
 Execution Engine
-       |
-       | Verdict + Metrics
-       v
-Execution Adapter
-       |
-       v
-Submission Service
-       |
-       v
+       │
+       │ Verdict + Metrics
+       ▼
+Worker Daemon
+       │
+       ▼
 MongoDB
-       |
-       v
-Submission Record Updated
+       │
+       ▼
+Submission Record Updated (status: COMPLETED, verdict: ACCEPTED / WRONG_ANSWER)
 ```
 
 Stored information may include:
@@ -494,39 +496,39 @@ MongoDB
 
 ---
 
-# 18. Future Asynchronous Flow
+# 18. Asynchronous Flow (Implemented Phase 12 Architecture)
 
-The same business flow can later become:
+The asynchronous execution pipeline implemented in Phase 12 operates as follows:
 
 ```text
 Frontend
-   |
-   v
-Backend
-   |
-   v
-Create Submission
-   |
-   v
-Queue
-   |
-   v
-Worker
-   |
-   v
+   │
+   ▼ POST /api/v1/submissions
+Backend API
+   │
+   ▼ 1. Create Submission (PENDING / QUEUED)
+MongoDB Submission
+   │
+   ▼ 2. Enqueue Job { submissionId }
+Redis / BullMQ (submission-queue)
+   │
+   ▼ 3. Claim Job (RUNNING)
+Worker Daemon
+   │
+   ▼ 4. Execute Code Against Test Cases
 Execution Engine
-   |
-   v
-Sandbox
-   |
-   v
-Result
-   |
-   v
-MongoDB
+   │
+   ▼ 5. Disposable Execution
+Docker Sandbox (codearena-sandbox:v1)
+   │
+   ▼ 6. Store Evaluation Result (COMPLETED / FAILED)
+MongoDB Result
+   │
+   ▼ 7. Polled via GET /api/v1/submissions/:id
+Frontend Client
 ```
 
-The major change is execution scheduling, not the business concept of a submission.
+The asynchronous model guarantees prompt API responses while heavy code compilation and sandbox execution proceed in the background worker daemon.
 
 ---
 

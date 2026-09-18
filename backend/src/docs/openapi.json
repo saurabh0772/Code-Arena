@@ -1,0 +1,2403 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "CodeArena API",
+    "description": "Production API specification for CodeArena — Online Judge & Secure Code Execution Platform.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "CodeArena Engineering"
+    }
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Current Environment Server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "User registration and authentication"
+    },
+    {
+      "name": "Users",
+      "description": "User profile management"
+    },
+    {
+      "name": "Problems",
+      "description": "Problem management and public problem catalog"
+    },
+    {
+      "name": "Test Cases",
+      "description": "Problem test case management and execution fixtures"
+    },
+    {
+      "name": "Submissions",
+      "description": "Code submission evaluation and user history"
+    },
+    {
+      "name": "Admin",
+      "description": "Administrative audit logging and governance"
+    },
+    {
+      "name": "System",
+      "description": "Liveness, readiness, and API documentation endpoints"
+    }
+  ],
+  "paths": {
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register a new user",
+        "description": "Creates a new user account with default USER role. Strips client-supplied roles to prevent privilege escalation. Enforces registration rate limiting.",
+        "operationId": "registerUser",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "$ref": "#/components/schemas/User"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ConflictError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitError"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Authenticate user",
+        "description": "Authenticates user credentials with Argon2 password verification and issues a signed JWT Bearer token. Enforces login rate limiting.",
+        "operationId": "loginUser",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "$ref": "#/components/schemas/User"
+                        },
+                        "token": {
+                          "type": "string",
+                          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitError"
+          }
+        }
+      }
+    },
+    "/api/v1/users/me": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get authenticated user profile",
+        "description": "Retrieves profile and role information for the currently authenticated user.",
+        "operationId": "getCurrentUserProfile",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User profile retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "$ref": "#/components/schemas/UserProfile"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/stats": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get authenticated user coding statistics",
+        "description": "Calculates and returns user coding statistics including total problems solved by difficulty, total submissions by verdict, and acceptance rate.",
+        "operationId": "getCurrentUserStats",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User coding statistics retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "$ref": "#/components/schemas/UserStats"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/solved-problems": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get problems solved by authenticated user",
+        "description": "Retrieves the list of active problems for which the authenticated user has at least one ACCEPTED submission.",
+        "operationId": "getCurrentUserSolvedProblems",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number (minimum 1)",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Problems per page (1 to 100)",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "difficulty",
+            "in": "query",
+            "description": "Filter by difficulty tier",
+            "schema": {
+              "type": "string",
+              "enum": ["EASY", "MEDIUM", "HARD"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of solved problems",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "problems": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/UserSolvedProblemItem"
+                          }
+                        },
+                        "pagination": {
+                          "$ref": "#/components/schemas/Pagination"
+                        }
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/activity": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get authenticated user submission activity calendar",
+        "description": "Returns daily submission activity counts for the authenticated user across a specified time range.",
+        "operationId": "getCurrentUserActivity",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "description": "Time range for activity aggregation ('30d', '90d', '1y', 'all'). Defaults to '1y'.",
+            "schema": {
+              "type": "string",
+              "enum": ["30d", "90d", "1y", "all"],
+              "default": "1y"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User submission activity retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "$ref": "#/components/schemas/UserActivityResponse"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/problems": {
+      "get": {
+        "tags": ["Problems"],
+        "summary": "List active problems",
+        "description": "Public endpoint to retrieve active problems with summary projections, test case counts, readiness breakdowns, pagination, and derived solved status for authenticated users.",
+        "operationId": "listProblems",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number (minimum 1)",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of problems per page (1 to 100)",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "difficulty",
+            "in": "query",
+            "description": "Filter by difficulty tier",
+            "schema": {
+              "type": "string",
+              "enum": ["EASY", "MEDIUM", "HARD"]
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "description": "Filter by single topic tag (alias for tags)",
+            "schema": {
+              "type": "string",
+              "example": "array"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "description": "Filter by topic tag(s)",
+            "schema": {
+              "type": "string",
+              "example": "array,math"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Case-insensitive title search query",
+            "schema": {
+              "type": "string",
+              "example": "Sum"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sorting criteria for problem list",
+            "schema": {
+              "type": "string",
+              "enum": ["newest", "oldest", "title_asc", "title_desc"],
+              "default": "newest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of active problems",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "problems": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ProblemSummary"
+                          }
+                        },
+                        "pagination": {
+                          "$ref": "#/components/schemas/Pagination"
+                        }
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Problems"],
+        "summary": "Create a problem",
+        "description": "Creates a new problem. Restricted strictly to administrators (ADMIN role). Records administrative audit log.",
+        "operationId": "createProblem",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProblemRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Problem created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "problem": {
+                          "$ref": "#/components/schemas/Problem"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          }
+        }
+      }
+    },
+    "/api/v1/problems/{problemId}": {
+      "get": {
+        "tags": ["Problems"],
+        "summary": "Get problem details by ID",
+        "description": "Public endpoint to retrieve complete specification and examples for an active problem.",
+        "operationId": "getProblemById",
+        "parameters": [
+          {
+            "name": "problemId",
+            "in": "path",
+            "required": true,
+            "description": "MongoDB ObjectId of the problem",
+            "schema": {
+              "type": "string",
+              "example": "65f0123456789abcdef01235"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Problem details retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "problem": {
+                          "$ref": "#/components/schemas/Problem"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Problems"],
+        "summary": "Update an existing problem",
+        "description": "Partially updates an existing problem. Restricted strictly to administrators (ADMIN role). Records administrative audit log.",
+        "operationId": "updateProblem",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "problemId",
+            "in": "path",
+            "required": true,
+            "description": "MongoDB ObjectId of the problem to update",
+            "schema": {
+              "type": "string",
+              "example": "65f0123456789abcdef01235"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProblemRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Problem updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "problem": {
+                          "$ref": "#/components/schemas/Problem"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Problems"],
+        "summary": "Deactivate a problem",
+        "description": "Soft-deactivates an existing problem (`isActive: false`). Restricted strictly to administrators (ADMIN role). Records administrative audit log.",
+        "operationId": "deactivateProblem",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "problemId",
+            "in": "path",
+            "required": true,
+            "description": "MongoDB ObjectId of the problem to deactivate",
+            "schema": {
+              "type": "string",
+              "example": "65f0123456789abcdef01235"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Problem deactivated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Problem deactivated successfully" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/api/v1/problems/{problemId}/test-cases": {
+      "get": {
+        "tags": ["Test Cases"],
+        "summary": "Get test cases for a problem",
+        "description": "Retrieves test cases for a problem with database-level role isolation. Normal users (USER role) receive ONLY active PUBLIC test cases. Administrators (ADMIN role) receive all test cases (both PUBLIC and HIDDEN).",
+        "operationId": "getTestCasesForProblem",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "problemId",
+            "in": "path",
+            "required": true,
+            "description": "MongoDB ObjectId of the problem",
+            "schema": {
+              "type": "string",
+              "example": "65f0123456789abcdef01235"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Accessible test cases for the problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "testCases": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TestCase"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Test Cases"],
+        "summary": "Create a test case for a problem",
+        "description": "Creates a new test case associated with the problem specified in the path. Restricted strictly to administrators (ADMIN role). Records administrative audit log.",
+        "operationId": "createTestCaseForProblem",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "problemId",
+            "in": "path",
+            "required": true,
+            "description": "MongoDB ObjectId of the problem",
+            "schema": {
+              "type": "string",
+              "example": "65f0123456789abcdef01235"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTestCaseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Test case created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "testCase": {
+                          "$ref": "#/components/schemas/TestCase"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/api/v1/test-cases/{testCaseId}": {
+      "get": {
+        "tags": ["Test Cases"],
+        "summary": "Get test case by ID",
+        "description": "Retrieves a single test case. Administrators can retrieve any test case. Normal users can only retrieve if the test case is active and visibility is PUBLIC (otherwise returns 404).",
+        "operationId": "getTestCaseById",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "testCaseId",
+            "in": "path",
+            "required": true,
+            "description": "MongoDB ObjectId of the test case",
+            "schema": {
+              "type": "string",
+              "example": "65f0123456789abcdef01236"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Test case details retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "testCase": {
+                          "$ref": "#/components/schemas/TestCase"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Test Cases"],
+        "summary": "Update an existing test case",
+        "description": "Partially updates an existing test case. Restricted strictly to administrators (ADMIN role). Records administrative audit log.",
+        "operationId": "updateTestCase",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "testCaseId",
+            "in": "path",
+            "required": true,
+            "description": "MongoDB ObjectId of the test case to update",
+            "schema": {
+              "type": "string",
+              "example": "65f0123456789abcdef01236"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTestCaseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Test case updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "testCase": {
+                          "$ref": "#/components/schemas/TestCase"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Test Cases"],
+        "summary": "Deactivate a test case",
+        "description": "Soft-deactivates an existing test case (`isActive: false`). Restricted strictly to administrators (ADMIN role). Records administrative audit log.",
+        "operationId": "deactivateTestCase",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "testCaseId",
+            "in": "path",
+            "required": true,
+            "description": "MongoDB ObjectId of the test case to deactivate",
+            "schema": {
+              "type": "string",
+              "example": "65f0123456789abcdef01236"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Test case deactivated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Test case deactivated successfully" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/api/v1/submissions": {
+      "post": {
+        "tags": ["Submissions"],
+        "summary": "Submit code solution (Asynchronous)",
+        "description": "Validates submission, persists initial record, and enqueues execution job into Redis/BullMQ for asynchronous processing by dedicated workers. Returns immediately with QUEUED status and PENDING verdict. Fails fast with 422 if problem has zero active test cases. Enforces submission rate limits.",
+        "operationId": "createSubmission",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSubmissionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Submission created and successfully queued for asynchronous processing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "submission": {
+                          "$ref": "#/components/schemas/Submission"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "422": {
+            "$ref": "#/components/responses/ProblemNotReadyError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitError"
+          }
+        }
+      }
+    },
+    "/api/v1/submissions/me": {
+      "get": {
+        "tags": ["Submissions"],
+        "summary": "Get authenticated user submission history",
+        "description": "Retrieves submissions belonging strictly to the authenticated user. Omits heavy sourceCode by default for performance unless `includeCode=true` is requested. Supports filtering by problemId, language, and verdict.",
+        "operationId": "getMySubmissions",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number (minimum 1)",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of submissions per page (1 to 100)",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "problemId",
+            "in": "query",
+            "description": "Filter submissions by problem ID",
+            "schema": {
+              "type": "string",
+              "example": "65f0123456789abcdef01235"
+            }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "description": "Filter submissions by programming language",
+            "schema": {
+              "type": "string",
+              "enum": ["CPP", "PYTHON", "JAVASCRIPT"]
+            }
+          },
+          {
+            "name": "verdict",
+            "in": "query",
+            "description": "Filter submissions by execution verdict",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "ACCEPTED",
+                "WRONG_ANSWER",
+                "COMPILATION_ERROR",
+                "RUNTIME_ERROR",
+                "TIME_LIMIT_EXCEEDED",
+                "MEMORY_LIMIT_EXCEEDED"
+              ]
+            }
+          },
+          {
+            "name": "includeCode",
+            "in": "query",
+            "description": "Include sourceCode field in submission objects (default false)",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User submission history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "submissions": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Submission"
+                          }
+                        },
+                        "pagination": {
+                          "$ref": "#/components/schemas/Pagination"
+                        }
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/submissions/{submissionId}": {
+      "get": {
+        "tags": ["Submissions"],
+        "summary": "Get submission details by ID",
+        "description": "Retrieves current or final submission details including execution status (PENDING, QUEUED, RUNNING, COMPLETED, FAILED), evaluation metrics, and full submitted source code. Used by clients to poll for final execution results after creating an asynchronous submission. Enforces object-level authorization: accessible only to the submission owner or administrators (ADMIN role).",
+        "operationId": "getSubmissionById",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "submissionId",
+            "in": "path",
+            "required": true,
+            "description": "MongoDB ObjectId of the submission",
+            "schema": {
+              "type": "string",
+              "example": "65f0123456789abcdef01237"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Submission details with source code and evaluation metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "submission": {
+                          "$ref": "#/components/schemas/Submission"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/audit-logs": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "List administrative audit logs",
+        "description": "Retrieves audit trails for administrative problem and test-case mutations. Restricted strictly to administrators (ADMIN role).",
+        "operationId": "getAuditLogs",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number (minimum 1)",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of logs per page (1 to 100)",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "description": "Filter by audit action type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PROBLEM_CREATED",
+                "PROBLEM_UPDATED",
+                "PROBLEM_DELETED",
+                "TEST_CASE_CREATED",
+                "TEST_CASE_UPDATED",
+                "TEST_CASE_DELETED"
+              ]
+            }
+          },
+          {
+            "name": "targetType",
+            "in": "query",
+            "description": "Filter by target entity type",
+            "schema": {
+              "type": "string",
+              "enum": ["Problem", "TestCase"]
+            }
+          },
+          {
+            "name": "targetId",
+            "in": "query",
+            "description": "Filter by target entity ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "description": "Filter by originating user ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated audit logs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "logs": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AuditLog"
+                          }
+                        },
+                        "pagination": {
+                          "$ref": "#/components/schemas/Pagination"
+                        }
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/queue-metrics": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get queue metrics",
+        "description": "Retrieves BullMQ queue operational metrics (waiting, active, completed, failed, delayed counts). Restricted strictly to administrators (ADMIN role).",
+        "operationId": "getQueueMetrics",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Queue metrics retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "waiting": { "type": "integer", "example": 0 },
+                        "active": { "type": "integer", "example": 1 },
+                        "completed": { "type": "integer", "example": 42 },
+                        "failed": { "type": "integer", "example": 2 },
+                        "delayed": { "type": "integer", "example": 0 }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "503": {
+            "description": "Queue service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Liveness probe",
+        "description": "Quick operational probe verifying Express process responsiveness and database connectivity state.",
+        "operationId": "getLiveness",
+        "responses": {
+          "200": {
+            "description": "Process is live and database is connected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "ok" },
+                    "service": { "type": "string", "example": "codearena-backend" },
+                    "database": { "type": "string", "example": "connected" }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database disconnected"
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Readiness probe",
+        "description": "Deep operational probe validating MongoDB connectivity and Docker execution engine runtime availability.",
+        "operationId": "getReadiness",
+        "responses": {
+          "200": {
+            "description": "System ready to handle traffic and code execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "ready" },
+                    "service": { "type": "string", "example": "codearena-backend" },
+                    "timestamp": { "type": "string", "format": "date-time" },
+                    "checks": {
+                      "type": "object",
+                      "properties": {
+                        "database": {
+                          "type": "object",
+                          "properties": {
+                            "status": { "type": "string", "example": "healthy" }
+                          }
+                        },
+                        "execution": {
+                          "type": "object",
+                          "properties": {
+                            "status": { "type": "string", "example": "healthy" },
+                            "mode": { "type": "string", "example": "docker" },
+                            "details": { "type": "string", "example": "Docker sandbox daemon available" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "One or more core dependencies are unhealthy"
+          }
+        }
+      }
+    },
+    "/api/v1/docs": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Interactive Swagger UI documentation",
+        "description": "Renders the interactive Swagger UI interface loaded with the local OpenAPI 3.0.3 specification.",
+        "operationId": "getSwaggerUiHtml",
+        "responses": {
+          "200": {
+            "description": "Swagger UI HTML page",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/docs/json": {
+      "get": {
+        "tags": ["System"],
+        "summary": "OpenAPI specification JSON",
+        "description": "Returns the machine-readable OpenAPI 3.0.3 specification JSON.",
+        "operationId": "getOpenApiJson",
+        "responses": {
+          "200": {
+            "description": "OpenAPI specification JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Provide a valid JWT token issued by POST /api/v1/auth/login"
+      }
+    },
+    "responses": {
+      "BadRequestError": {
+        "description": "Bad Request — Invalid parameter, malformed payload, or validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "message": "Title is required and must not be empty",
+              "errorCode": "VALIDATION_ERROR",
+              "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Title is required and must not be empty"
+              },
+              "requestId": "req_mu576kgd_5826a9e8"
+            }
+          }
+        }
+      },
+      "UnauthorizedError": {
+        "description": "Unauthorized — Missing, invalid, or expired authentication token",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "message": "Invalid authorization header format. Expected Bearer <token>",
+              "errorCode": "AUTHENTICATION_REQUIRED",
+              "error": {
+                "code": "AUTHENTICATION_REQUIRED",
+                "message": "Invalid authorization header format. Expected Bearer <token>"
+              },
+              "requestId": "req_mu576kgd_5826a9e8"
+            }
+          }
+        }
+      },
+      "ForbiddenError": {
+        "description": "Forbidden — Insufficient permissions or object-level authorization denial",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "message": "Access denied: insufficient permissions",
+              "errorCode": "FORBIDDEN",
+              "error": {
+                "code": "FORBIDDEN",
+                "message": "Access denied: insufficient permissions"
+              },
+              "requestId": "req_mu576kgd_5826a9e8"
+            }
+          }
+        }
+      },
+      "NotFoundError": {
+        "description": "Not Found — Requested resource does not exist or is inactive",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "message": "Problem not found",
+              "errorCode": "RESOURCE_NOT_FOUND",
+              "error": {
+                "code": "RESOURCE_NOT_FOUND",
+                "message": "Problem not found"
+              },
+              "requestId": "req_mu576kgd_5826a9e8"
+            }
+          }
+        }
+      },
+      "ConflictError": {
+        "description": "Conflict — Resource already exists (e.g., email duplicate)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "message": "User already exists",
+              "errorCode": "DUPLICATE_KEY_ERROR",
+              "error": {
+                "code": "DUPLICATE_KEY_ERROR",
+                "message": "User already exists"
+              },
+              "requestId": "req_mu576kgd_5826a9e8"
+            }
+          }
+        }
+      },
+      "ProblemNotReadyError": {
+        "description": "Unprocessable Entity — Problem has zero active test cases and cannot evaluate submissions",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "message": "This problem has no active test cases and is not ready for submissions.",
+              "errorCode": "PROBLEM_NOT_READY",
+              "error": {
+                "code": "PROBLEM_NOT_READY",
+                "message": "This problem has no active test cases and is not ready for submissions."
+              },
+              "requestId": "req_mu576kgd_5826a9e8"
+            }
+          }
+        }
+      },
+      "RateLimitError": {
+        "description": "Too Many Requests — Rate limit threshold exceeded",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "error": {
+                "code": "RATE_LIMIT_EXCEEDED",
+                "message": "Too many registration attempts. Please try again in 15 minutes."
+              }
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "RegisterRequest": {
+        "type": "object",
+        "required": ["name", "email", "password"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100,
+            "example": "Jane Doe"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "jane@example.com"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "minLength": 8,
+            "maxLength": 128,
+            "example": "StrongPassword123!"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "jane@example.com"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "example": "StrongPassword123!"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "65f0123456789abcdef01234"
+          },
+          "name": {
+            "type": "string",
+            "example": "Jane Doe"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "jane@example.com"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["USER", "ADMIN"],
+            "example": "USER"
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "UserProfile": {
+        "type": "object",
+        "description": "User profile representation returned by /users/me, containing user attributes at top level and nested under user object.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "65f0123456789abcdef01234"
+          },
+          "name": {
+            "type": "string",
+            "example": "Jane Doe"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "jane@example.com"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["USER", "ADMIN"],
+            "example": "USER"
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "UserStats": {
+        "type": "object",
+        "description": "Calculated profile statistics for the authenticated user",
+        "properties": {
+          "totalProblemsSolved": { "type": "integer", "example": 5 },
+          "easySolved": { "type": "integer", "example": 3 },
+          "mediumSolved": { "type": "integer", "example": 2 },
+          "hardSolved": { "type": "integer", "example": 0 },
+          "totalSubmissions": { "type": "integer", "example": 12 },
+          "acceptedSubmissions": { "type": "integer", "example": 6 },
+          "wrongAnswerSubmissions": { "type": "integer", "example": 4 },
+          "compilationErrorSubmissions": { "type": "integer", "example": 1 },
+          "runtimeErrorSubmissions": { "type": "integer", "example": 1 },
+          "timeLimitExceededSubmissions": { "type": "integer", "example": 0 },
+          "memoryLimitExceededSubmissions": { "type": "integer", "example": 0 },
+          "acceptanceRate": { "type": "number", "format": "float", "example": 50.0 }
+        }
+      },
+      "UserSolvedProblemItem": {
+        "type": "object",
+        "description": "Problem item in the solved problems list",
+        "properties": {
+          "id": { "type": "string", "example": "65f02c91a4e21d3f90e4a100" },
+          "title": { "type": "string", "example": "Sum of Two Numbers" },
+          "difficulty": { "type": "string", "enum": ["EASY", "MEDIUM", "HARD"], "example": "EASY" },
+          "tags": { "type": "array", "items": { "type": "string" }, "example": ["arrays", "math"] },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "solved": { "type": "boolean", "example": true }
+        }
+      },
+      "UserActivityItem": {
+        "type": "object",
+        "description": "Aggregated daily submission count",
+        "properties": {
+          "date": { "type": "string", "format": "date", "example": "2026-09-17" },
+          "submissions": { "type": "integer", "example": 4 }
+        }
+      },
+      "UserActivityResponse": {
+        "type": "object",
+        "description": "User submission activity calendar response",
+        "properties": {
+          "range": { "type": "string", "example": "1y" },
+          "totalSubmissions": { "type": "integer", "example": 42 },
+          "activity": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserActivityItem"
+            }
+          }
+        }
+      },
+      "ProblemExample": {
+        "type": "object",
+        "required": ["input", "output"],
+        "properties": {
+          "input": {
+            "type": "string",
+            "example": "2\n1 2\n"
+          },
+          "output": {
+            "type": "string",
+            "example": "3\n"
+          }
+        }
+      },
+      "ProblemReadiness": {
+        "type": "object",
+        "properties": {
+          "isReady": {
+            "type": "boolean",
+            "example": true
+          },
+          "publicCount": {
+            "type": "integer",
+            "example": 2
+          },
+          "hiddenCount": {
+            "type": "integer",
+            "example": 3
+          },
+          "totalCount": {
+            "type": "integer",
+            "example": 5
+          },
+          "missingRequirements": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": []
+          }
+        }
+      },
+      "ProblemSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "65f0123456789abcdef01235"
+          },
+          "title": {
+            "type": "string",
+            "example": "Sum of Two Numbers"
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": ["EASY", "MEDIUM", "HARD"],
+            "example": "EASY"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": ["math", "basics"]
+          },
+          "authorId": {
+            "type": "string",
+            "example": "65f0123456789abcdef01234"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "solved": {
+            "type": "boolean",
+            "description": "Indicates whether the authenticated user has solved this problem with an ACCEPTED verdict",
+            "example": false
+          },
+          "testCasesCount": {
+            "type": "integer",
+            "example": 5
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/ProblemReadiness"
+          }
+        }
+      },
+      "Problem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "65f0123456789abcdef01235"
+          },
+          "title": {
+            "type": "string",
+            "example": "Sum of Two Numbers"
+          },
+          "description": {
+            "type": "string",
+            "example": "Given two integers A and B, calculate and return their sum."
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": ["EASY", "MEDIUM", "HARD"],
+            "example": "EASY"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": ["math", "basics"]
+          },
+          "inputFormat": {
+            "type": "string",
+            "example": "The first line contains an integer T. Each test case consists of two integers A and B."
+          },
+          "outputFormat": {
+            "type": "string",
+            "example": "For each testcase, output the sum A + B on a new line."
+          },
+          "constraints": {
+            "type": "string",
+            "example": "1 <= T <= 100\n-10^9 <= A, B <= 10^9"
+          },
+          "examples": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProblemExample"
+            }
+          },
+          "authorId": {
+            "type": "string",
+            "example": "65f0123456789abcdef01234"
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true
+          },
+          "testCasesCount": {
+            "type": "integer",
+            "example": 5
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/ProblemReadiness"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateProblemRequest": {
+        "type": "object",
+        "required": [
+          "title",
+          "description",
+          "difficulty",
+          "inputFormat",
+          "outputFormat",
+          "constraints",
+          "examples"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "Sum of Two Numbers"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Given two integers A and B, return their sum."
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": ["EASY", "MEDIUM", "HARD"],
+            "example": "EASY"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": ["math", "basics"]
+          },
+          "inputFormat": {
+            "type": "string",
+            "example": "First line contains T. Each of the following T lines contains two integers A and B."
+          },
+          "outputFormat": {
+            "type": "string",
+            "example": "For each testcase, print the sum A + B on a new line."
+          },
+          "constraints": {
+            "type": "string",
+            "example": "1 <= T <= 100\n-10^9 <= A, B <= 10^9"
+          },
+          "examples": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/ProblemExample"
+            }
+          }
+        }
+      },
+      "UpdateProblemRequest": {
+        "type": "object",
+        "description": "At least one field must be provided for update.",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "Updated Sum of Two Numbers"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Updated problem statement..."
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": ["EASY", "MEDIUM", "HARD"],
+            "example": "EASY"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": ["math"]
+          },
+          "inputFormat": {
+            "type": "string",
+            "example": "Two integers on a single line."
+          },
+          "outputFormat": {
+            "type": "string",
+            "example": "Single integer sum."
+          },
+          "constraints": {
+            "type": "string",
+            "example": "-10^9 <= A, B <= 10^9"
+          },
+          "examples": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/ProblemExample"
+            }
+          }
+        }
+      },
+      "TestCase": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "65f0123456789abcdef01236"
+          },
+          "problemId": {
+            "type": "string",
+            "example": "65f0123456789abcdef01235"
+          },
+          "input": {
+            "type": "string",
+            "example": "2\n1 2\n"
+          },
+          "expectedOutput": {
+            "type": "string",
+            "example": "3\n"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": ["PUBLIC", "HIDDEN"],
+            "example": "PUBLIC"
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 0,
+            "example": 1
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateTestCaseRequest": {
+        "type": "object",
+        "required": ["input", "expectedOutput", "visibility", "order"],
+        "properties": {
+          "input": {
+            "type": "string",
+            "example": "2\n1 2\n"
+          },
+          "expectedOutput": {
+            "type": "string",
+            "example": "3\n"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": ["PUBLIC", "HIDDEN"],
+            "example": "PUBLIC"
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 0,
+            "example": 1
+          }
+        }
+      },
+      "UpdateTestCaseRequest": {
+        "type": "object",
+        "description": "At least one field must be provided for update.",
+        "properties": {
+          "input": {
+            "type": "string",
+            "example": "5\n2 3\n"
+          },
+          "expectedOutput": {
+            "type": "string",
+            "example": "5\n"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": ["PUBLIC", "HIDDEN"],
+            "example": "HIDDEN"
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 0,
+            "example": 2
+          }
+        }
+      },
+      "CreateSubmissionRequest": {
+        "type": "object",
+        "required": ["problemId", "language", "sourceCode"],
+        "properties": {
+          "problemId": {
+            "type": "string",
+            "description": "Valid MongoDB ObjectId of the target problem",
+            "example": "65f0123456789abcdef01235"
+          },
+          "language": {
+            "type": "string",
+            "enum": ["CPP", "PYTHON", "JAVASCRIPT"],
+            "example": "CPP"
+          },
+          "sourceCode": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 65536,
+            "example": "#include <iostream>\nusing namespace std;\nint main() {\n    int a, b;\n    if (cin >> a >> b) cout << (a + b) << endl;\n    return 0;\n}"
+          }
+        }
+      },
+      "Submission": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "65f0123456789abcdef01237"
+          },
+          "userId": {
+            "type": "string",
+            "example": "65f0123456789abcdef01234"
+          },
+          "problemId": {
+            "type": "string",
+            "example": "65f0123456789abcdef01235"
+          },
+          "language": {
+            "type": "string",
+            "enum": ["CPP", "PYTHON", "JAVASCRIPT"],
+            "example": "CPP"
+          },
+          "sourceCode": {
+            "type": "string",
+            "example": "#include <iostream>..."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["PENDING", "QUEUED", "RUNNING", "COMPLETED", "FAILED"],
+            "example": "QUEUED"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "ACCEPTED",
+              "WRONG_ANSWER",
+              "COMPILATION_ERROR",
+              "RUNTIME_ERROR",
+              "TIME_LIMIT_EXCEEDED",
+              "MEMORY_LIMIT_EXCEEDED"
+            ],
+            "example": "PENDING"
+          },
+          "runtimeMs": {
+            "type": "integer",
+            "nullable": true,
+            "example": 45
+          },
+          "memoryKb": {
+            "type": "integer",
+            "nullable": true,
+            "example": null
+          },
+          "testsPassed": {
+            "type": "integer",
+            "nullable": true,
+            "example": 5
+          },
+          "totalTests": {
+            "type": "integer",
+            "nullable": true,
+            "example": 5
+          },
+          "queuedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "failedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "errorMessage": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AuditLog": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "65f0123456789abcdef01238"
+          },
+          "userId": {
+            "type": "string",
+            "example": "65f0123456789abcdef01234"
+          },
+          "user": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "id": { "type": "string", "example": "65f0123456789abcdef01234" },
+              "name": { "type": "string", "example": "Admin User" },
+              "email": { "type": "string", "example": "admin@codearena.dev" }
+            }
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "PROBLEM_CREATED",
+              "PROBLEM_UPDATED",
+              "PROBLEM_DELETED",
+              "TEST_CASE_CREATED",
+              "TEST_CASE_UPDATED",
+              "TEST_CASE_DELETED"
+            ],
+            "example": "PROBLEM_CREATED"
+          },
+          "targetType": {
+            "type": "string",
+            "enum": ["Problem", "TestCase"],
+            "example": "Problem"
+          },
+          "targetId": {
+            "type": "string",
+            "example": "65f0123456789abcdef01235"
+          },
+          "details": {
+            "type": "object",
+            "example": {
+              "title": "Sum of Two Numbers",
+              "difficulty": "EASY"
+            }
+          },
+          "ip": {
+            "type": "string",
+            "nullable": true,
+            "example": "127.0.0.1"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "example": 1
+          },
+          "limit": {
+            "type": "integer",
+            "example": 20
+          },
+          "total": {
+            "type": "integer",
+            "example": 42
+          },
+          "totalPages": {
+            "type": "integer",
+            "example": 3
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "message": {
+            "type": "string",
+            "example": "Resource not found"
+          },
+          "errorCode": {
+            "type": "string",
+            "example": "RESOURCE_NOT_FOUND"
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "RESOURCE_NOT_FOUND"
+              },
+              "message": {
+                "type": "string",
+                "example": "Resource not found"
+              }
+            }
+          },
+          "requestId": {
+            "type": "string",
+            "example": "req_mu576kgd_5826a9e8"
+          }
+        }
+      }
+    }
+  }
+}

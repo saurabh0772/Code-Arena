@@ -14,15 +14,72 @@
 | **Phase 8** | Connect Everything (MVP Integration) | **COMPLETE** |
 | **Phase 9** | Frontend SPA | **COMPLETE** |
 | **Phase 10** | Testing + Deployment Verification | **COMPLETE** |
-| **Phase 11** | Distributed Execution Engine (Queues/Workers) | **FUTURE** |
+| **Phase 11** | Production Hardening + Observability | **COMPLETE** |
+| **Phase 12** | Async Submission Processing | **COMPLETE** |
+| **Phase 13** | Redis + Queue | **COMPLETE** |
+| **Phase 14** | Worker Architecture | **COMPLETE** |
+| **Phase 15** | Multiple Workers / Concurrency | **FUTURE** |
+| **Phase 16** | Horizontal Scaling | **FUTURE** |
+| **Phase 17** | Distributed Execution Architecture | **FUTURE** |
+| **Phase 18** | Advanced Infrastructure | **FUTURE** |
 
-> **Architecture Note**: CodeArena is currently structured as an integrated Modular Monolith with secure Docker sandboxing and synchronous evaluation. Distributed queuing, worker pools, and horizontal scaling are scheduled exclusively for Phase 11.
+> **Architecture Note**: CodeArena is structured as a high-performance Modular Monolith with asynchronous submission processing via Redis, BullMQ, and a dedicated Worker daemon, backed by isolated Docker sandboxes (`codearena-sandbox:v1`).
+
+### Phase 11 — Production Hardening + Observability [COMPLETE]
+- **API Security Hardening**: Strict rate limiting, HTTP security headers (Helmet), and CORS policy.
+- **Correlation & Observability**: Unique `X-Request-Id` correlation across requests and structured JSON logging with Winston.
+- **Sensitive Data Protection**: Redaction of passwords, tokens, and submitted code in logs.
+- **Health & Readiness Probes**: `/health` liveness probe and `/ready` dependency probe (MongoDB, Execution Engine, Redis).
+- **Interactive Documentation**: Synchronized OpenAPI 3.0.3 specification and Swagger UI (`/api/v1/docs`).
+- **Administrative Governance**: Audit logging for all administrative actions (problems, test cases, user lifecycle).
+
+### Phase 12 — Async Submission Processing [COMPLETE]
+- **Queue Architecture**: Redis 7.2 transport with BullMQ submission queue (`submission-execution`).
+- **Worker Daemon**: Autonomous BullMQ worker process (`src/workers/submission.worker.js`) consuming execution jobs.
+- **Minimal Payload**: Only `{ submissionId }` is enqueued; worker hydrates records securely from MongoDB.
+- **Atomic State Transitions**: Thread-safe lifecycle transitions (`PENDING` → `QUEUED` → `RUNNING` → `COMPLETED` / `FAILED`).
+- **Resilient Retry Handling**: Automatic retries with exponential backoff for transient infrastructure errors, leaving user code errors as completed verdicts.
+- **Frontend Polling**: Reactive polling mechanism in React frontend for real-time submission tracking.
+- **Graceful Shutdown**: Complete resource cleanup and connection draining on `SIGINT` / `SIGTERM`.
+
+### Phase 13 — Redis + Queue [COMPLETE]
+- **Centralized Redis Architecture**: Centralized connection and configuration module (`src/config/redis.js`) supporting standalone host/port/password and `REDIS_URL`.
+- **BullMQ Compliance Guarantees**: Enforces `maxRetriesPerRequest: null` and `enableReadyCheck: false` across all connection modes.
+- **Resilient Connection Strategy**: Capped exponential retry backoff (`times * 100` up to 3000ms) and deep readiness ping check.
+- **Producer Hardening & Strict Minimal Payload**: `enqueueSubmission` strictly enforces payload `{ submissionId }` without secrets, tokens, test cases, or source code.
+- **Queue Idempotency**: Strict alignment of BullMQ `jobId = submissionId` prevents duplicate active/waiting jobs.
+- **Queue Observability**: `getQueueMetrics()` and `GET /api/v1/admin/queue-metrics` RBAC-protected administrative endpoint.
+- **Failure Resilience & Consistency**: Automatic fallback on detected Redis outages to HTTP 503 `QUEUE_UNAVAILABLE`, marking MongoDB records `FAILED` with timestamps and safe error messages; documented small MongoDB → Redis/BullMQ dual-write consistency window and future periodic reconciliation strategy.
+
+### Phase 14 — Worker Architecture [COMPLETE]
+- **Autonomous Worker Daemon**: Completely decoupled background process (`src/workers/submission.worker.js` / `npm run worker`) isolated from Express HTTP API without binding web ports or calling `app.listen()`.
+- **Fail-Fast Initialization Lifecycle**: Explicit pre-flight startup sequence verifying MongoDB database connectivity and Redis readiness via ping before polling or consuming jobs.
+- **Strict Payload Validation**: Defensive payload parsing rejecting missing, undefined, or non-ObjectId hex strings safely without crashing the worker.
+- **Atomic State Machine Claiming**: Concurrency-safe atomic transition (`QUEUED` → `RUNNING`) via `findOneAndUpdate`, cleanly skipping non-existent or duplicate submissions.
+- **Verdict vs. Infrastructure Separation**: Distinguishes user code evaluation results (`ACCEPTED`, `WRONG_ANSWER`, `TLE`, etc., completed cleanly without retrying) from transient infrastructure errors (reverting MongoDB to `QUEUED` for exponential backoff retries, or terminal `FAILED` once retries are exhausted).
+- **Idempotent Graceful Shutdown**: Traps `SIGTERM` and `SIGINT`, guards against duplicate signals, drains active jobs, disconnects Redis and MongoDB cleanly, and enforces a 10-second safety timeout.
+- **Execution Observability & Timing**: Emits structured JSON events (`submission_job_started`, `submission_job_completed`) with execution duration tracking (`durationMs`) while completely sanitizing source code, credentials, and secrets.
+
+### Phase 15 — Multiple Workers / Concurrency [FUTURE]
+- Multi-worker concurrency, thread pools, and parallel execution.
+
+### Phase 16 — Horizontal Scaling [FUTURE]
+- Horizontal autoscaling, cluster management, and cross-node coordination.
+
+### Phase 17 — Distributed Execution Architecture [FUTURE]
+- Distributed execution clusters, multi-region routing, and advanced scheduling.
+
+### Phase 18 — Advanced Infrastructure [FUTURE]
+- Zero-trust networks, advanced telemetry, and multi-cloud sandboxing.
 
 ---
 
-## Original Development Sequence
+## Historical Roadmap — Do Not Use for Current Phase Tracking
 
-> **Historical Context**: The sequence below represents the original development roadmap formulated at project inception. Refer to the **Phase Roadmap Status** table above for the current implementation status.
+> [!WARNING]
+> **Historical Roadmap — Do Not Use for Current Phase Tracking**
+> The steps below represent the original, early planning sequence formulated at project inception.
+> The **Phase Roadmap Status** table at the top of this document is the authoritative canonical roadmap for the CodeArena project.
 
 ### Step 1 — Architectural Decision Records (ADRs)
 

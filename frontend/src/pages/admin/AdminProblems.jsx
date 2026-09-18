@@ -260,15 +260,20 @@ export function AdminProblems() {
                       {getDifficultyBadge(prob.difficulty)}
                     </td>
                     <td className="px-4 py-3.5 font-mono text-xs text-slate-300">
-                      {prob.testCasesCount ?? 0} Test Cases
+                      <div>{prob.testCasesCount ?? 0} Test Cases</div>
+                      {prob.readiness && (
+                        <div className="text-[10px] text-slate-400 font-sans mt-0.5">
+                          {prob.readiness.publicCount} public · {prob.readiness.hiddenCount} hidden
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3.5">
-                      {(prob.testCasesCount ?? 0) > 0 ? (
-                        <span className="inline-flex items-center text-xs font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded">
+                      {prob.readiness?.isReady || (prob.testCasesCount ?? 0) > 0 ? (
+                        <span className="inline-flex items-center text-xs font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded" title="Ready for submissions">
                           ✓ Ready
                         </span>
                       ) : (
-                        <span className="inline-flex items-center text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded">
+                        <span className="inline-flex items-center text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded" title={prob.readiness?.missingRequirements?.join(', ') || 'No active test cases'}>
                           ⚠ Not Ready
                         </span>
                       )}

@@ -33,3 +33,164 @@
   backdrop-filter: blur(12px);
   border: 1px solid rgba(36, 48, 73, 0.6);
 }
+
+/* ──────────────────────────────────────────────
+   Home / Landing Page Styles
+   ────────────────────────────────────────────── */
+
+/* Override body background when the home page is active */
+.home-page {
+  background-color: #FFFBF7;
+}
+
+/* Light scrollbar for home page */
+.home-page ::-webkit-scrollbar-track {
+  background: #FFFBF7;
+}
+
+.home-page ::-webkit-scrollbar-thumb {
+  background: #E5D5C5;
+}
+
+.home-page ::-webkit-scrollbar-thumb:hover {
+  background: #D4C4B4;
+}
+
+/* Staggered animation delays */
+.home-stagger-1 { animation-delay: 0.1s; }
+.home-stagger-2 { animation-delay: 0.2s; }
+.home-stagger-3 { animation-delay: 0.3s; }
+.home-stagger-4 { animation-delay: 0.4s; }
+.home-stagger-5 { animation-delay: 0.5s; }
+.home-stagger-6 { animation-delay: 0.6s; }
+.home-stagger-7 { animation-delay: 0.7s; }
+.home-stagger-8 { animation-delay: 0.8s; }
+
+/* Scroll reveal initial state */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+}
+
+.scroll-reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Code editor syntax colors (light theme for the mockup) */
+.code-keyword { color: #D73A49; }
+.code-string { color: #032F62; }
+.code-comment { color: #6A737D; }
+.code-function { color: #6F42C1; }
+.code-type { color: #005CC5; }
+.code-number { color: #005CC5; }
+.code-directive { color: #D73A49; }
+.code-namespace { color: #005CC5; }
+.code-operator { color: #D73A49; }
+.code-bracket { color: #24292E; }
+.code-plain { color: #24292E; }
+
+/* Decorative blobs */
+.home-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.home-blob-orange {
+  background: #F26522;
+}
+
+.home-blob-peach {
+  background: #FDDCBF;
+}
+
+/* Featured problem card hover lift */
+.problem-card-home {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.problem-card-home:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(242, 101, 34, 0.08), 0 4px 12px rgba(0,0,0,0.04);
+}
+
+/* Feature card hover */
+.feature-card-home {
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.feature-card-home:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(242, 101, 34, 0.06), 0 2px 8px rgba(0,0,0,0.03);
+  border-color: #FDDCBF;
+}
+
+/* Stat card subtle hover */
+.stat-card-home {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card-home:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+}
+
+/* CTA section wave background */
+.cta-section-bg {
+  background: linear-gradient(135deg, #FFF0E6 0%, #FFE4D4 40%, #FDDCBF 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Home nav link underline animation */
+.home-nav-link {
+  position: relative;
+}
+
+.home-nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: #F26522;
+  transition: width 0.3s ease, left 0.3s ease;
+  border-radius: 1px;
+}
+
+.home-nav-link:hover::after,
+.home-nav-link.active::after {
+  width: 100%;
+  left: 0;
+}
+
+/* Mobile menu animation */
+.mobile-menu-enter {
+  animation: slideDown 0.3s ease-out forwards;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Editor cursor blink */
+.editor-cursor {
+  animation: cursorBlink 1s step-end infinite;
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}

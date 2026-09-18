@@ -26,56 +26,76 @@ These two uses must be treated differently.
 
 # 3. Application Containerization
 
-CodeArena application components can run in containers:
+CodeArena application components run as containerized services orchestrated by Docker Compose:
 
 ```text
-Frontend
-Backend
-Execution Engine
-MongoDB (development)
+frontend (React 18 SPA served via Nginx)
+backend (Express API modular monolith)
+worker (Background BullMQ consumer daemon, reusing backend image)
+redis (Redis 7.2 Alpine queue transport)
+mongodb (MongoDB 7.0 database)
 ```
 
-This provides consistent development and deployment environments.
+In addition, an unprivileged template image:
+
+```text
+codearena-sandbox:v1 (Built from execution-engine/Dockerfile.sandbox)
+```
+
+is used exclusively to create ephemeral, disposable containers for executing untrusted user code.
 
 ---
 
 # 4. Application Architecture
 
 ```text
-                  Docker Environment
-                         |
-        +----------------+----------------+
-        |                |                |
-        v                v                v
-    Frontend          Backend       Execution Engine
-                         |                |
-                         v                v
-                      MongoDB        Docker Runtime
-                                          |
-                                          v
-                                       Sandbox
+                            User
+                              │
+                              │ Port 5173
+                              ▼
+                           Frontend (Nginx)
+                              │
+                              │ Port 5000
+                              ▼
+                           Backend API
+                              │
+               ┌──────────────┴──────────────┐
+               ▼                             ▼
+            MongoDB                 Redis 7.2 (Queue Transport)
+         (Port 27017)             (Internal: redis:6379, Host: 6380)
+                                             │
+                                             ▼
+                                       Worker Daemon
+                                             │
+                                             ▼
+                                      Execution Engine
+                                             │
+                                             ▼ Docker API (/var/run/docker.sock)
+                                   Disposable Sandbox Containers
+                                      (codearena-sandbox:v1)
 ```
 
 ---
 
 # 5. Docker Compose
 
-Local development uses:
+Local development uses `docker-compose.yml` over the default Docker Compose network (`<project>_default`).
+
+Active services:
 
 ```text
-docker-compose.yml
+frontend (Build: frontend/Dockerfile, Host: 5173 -> Container: 80)
+backend (Build: backend/Dockerfile, Host: 5000 -> Container: 5000)
+worker (Build: backend/Dockerfile, Command: node src/workers/submission.worker.js)
+redis (Image: redis:7.2-alpine, Host: 127.0.0.1:6380 -> Container: 6379)
+mongodb (Image: mongo:7.0, Host: 27017 -> Container: 27017)
 ```
 
-Expected services:
+Sandbox template image:
+Built via `npm run docker:build-sandbox` (or `npm run docker:up`).
+It is **not** a persistent Compose service container.
 
-```text
-frontend
-backend
-execution-engine
-mongodb
-```
-
-Compose simplifies local service orchestration.
+Compose coordinates local service orchestration and networking.
 
 ---
 
@@ -103,9 +123,15 @@ Production Image
 
 ---
 
-# 7. Backend Container
+# 7. Backend & Worker Containers (`backend/Dockerfile`)
 
-The Backend container should contain:
+The Node.js backend image is defined in `backend/Dockerfile`. It is used by two services in Docker Compose:
+1. **Backend API**: Runs Express server (`node src/server.js`) handling REST endpoints, auth, and queueing.
+2. **Worker Daemon**: Runs the BullMQ background worker (`node src/workers/submission.worker.js`), consuming execution jobs.
+
+There is **no dedicated worker Dockerfile**; the worker reuses the backend image and executes the worker entrypoint.
+
+The image contains:
 
 ```text
 Node.js Runtime
@@ -113,83 +139,50 @@ Application Code
 Production Dependencies
 ```
 
-It should not unnecessarily contain:
+---
+
+# 8. Execution Engine & Sandbox Builder (`execution-engine/Dockerfile.sandbox`)
+
+The Execution Engine runs inside the Worker process (and Backend in local dev) and requires access to the Docker socket (`/var/run/docker.sock`) to launch disposable sandbox containers:
 
 ```text
-C++ Compiler
-Python Toolchain
-Docker Development Tools
+Worker Process (Host/Container)
+       │
+       ▼ Docker Socket (/var/run/docker.sock)
+Docker Daemon
+       │
+       ▼ Spawns disposable container from codearena-sandbox:v1
+Disposable Sandbox Container
 ```
 
-The Backend should remain focused on API/business logic.
+### Sandbox Template Image (`execution-engine/Dockerfile.sandbox`)
+- Builds `codearena-sandbox:v1`
+- Contains C++ (`g++`), Python 3, and Node.js runtimes
+- Executes untrusted user code under non-root user `1000:1000`
+- Disposable: Created per test execution and destroyed immediately
+- **NOT** a persistent or long-running Compose service
+
+The user code inside the sandbox never receives Docker socket access or network access.
 
 ---
 
-# 8. Execution Engine Container
+# 9. Frontend Container (`frontend/Dockerfile`)
 
-The Execution Engine requires access to the container runtime so that it can create and manage sandbox containers.
-
-This is a privileged architectural boundary and must be protected carefully.
-
-```text
-Execution Engine
-       |
-       v
-Docker Runtime
-       |
-       v
-Sandbox
-```
-
-The user code inside the sandbox must not receive the same management access.
+`frontend/Dockerfile` uses a multi-stage Docker build:
+1. Build stage compiles the React 18 SPA with Vite.
+2. Production stage serves static assets using an unprivileged Nginx server on port 80 (mapped to host port 5173).
 
 ---
 
-# 9. Sandbox Container
+# 10. Repository Dockerfiles Summary
 
-A sandbox is created dynamically for each submission.
+The repository contains exactly three Dockerfiles:
 
-```text
-Submission
-    |
-    v
-Create Container
-    |
-    v
-Execute
-    |
-    v
-Collect Result
-    |
-    v
-Destroy Container
-```
-
-The sandbox is temporary.
-
----
-
-# 10. Application Containers vs Sandbox Containers
-
-These must not be confused.
-
-### Application Containers
-
-```text
-Frontend
-Backend
-Execution Engine
-```
-
-They are long-running services.
-
-### Sandbox Containers
-
-```text
-User Code
-```
-
-They are short-lived and created per execution.
+| Dockerfile | Target Service / Role | Lifecycle |
+|---|---|---|
+| `backend/Dockerfile` | `backend` API & `worker` daemon | Long-running services |
+| `frontend/Dockerfile` | `frontend` web application | Long-running service (Nginx) |
+| `execution-engine/Dockerfile.sandbox` | `codearena-sandbox:v1` image | Ephemeral sandboxes (disposable) |
 
 ---
 
@@ -610,17 +603,16 @@ This becomes especially important when concurrent submissions increase.
 
 ```text
 Developer
-   |
-   v
-docker compose up
-   |
-   +---- Frontend
-   |
-   +---- Backend
-   |
-   +---- Execution Engine
-   |
-   +---- MongoDB
+   │
+   ├─ 1. npm run docker:build-sandbox (Builds codearena-sandbox:v1)
+   ▼
+docker compose up -d
+   │
+   ├── frontend (Port 5173 -> Nginx 80)
+   ├── backend (Port 5000 -> Express API)
+   ├── worker (Reuses backend image, no HTTP port)
+   ├── redis (Port 6380 -> 6379)
+   └── mongodb (Port 27017 -> 27017)
 ```
 
 The developer can run the complete application locally using the Compose environment.

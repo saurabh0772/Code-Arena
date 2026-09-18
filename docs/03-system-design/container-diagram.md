@@ -10,14 +10,16 @@ The diagram focuses on the MVP architecture.
 
 # 2. Container Overview
 
-The MVP contains:
+The Phase 12 architecture contains:
 
 ```text
-Frontend
-Backend
-Execution Engine
-MongoDB
-Docker Sandbox
+Frontend (React / Vite / Nginx)
+Backend (Modular Monolith API Producer)
+Redis (BullMQ Queue Transport)
+Worker (Background Daemon Consumer)
+Execution Engine Boundary
+MongoDB (Document Database)
+Docker Sandbox (Disposable codearena-sandbox:v1)
 ```
 
 ---
@@ -26,34 +28,54 @@ Docker Sandbox
 
 ```text
                          User
-                           |
-                           | HTTPS
-                           v
+                           │
+                           │ HTTPS (Port 5173 / 80)
+                           ▼
                  +-------------------+
                  |     Frontend      |
-                 |   React / Vite    |
+                 |   React / Nginx   |
                  +---------+---------+
-                           |
-                           | REST / JSON
-                           v
+                           │
+                           │ REST / JSON (Port 5000)
+                           ▼
                  +-------------------+
-                 |      Backend      |
+                 |    Backend API    |
                  |  Modular Monolith |
                  +----+---------+----+
-                      |         |
-             MongoDB  |         | Execution API
-                      |         |
-                      v         v
-                +---------+  +------------------+
-                | MongoDB |  | Execution Engine |
-                +---------+  +--------+---------+
-                                      |
-                                      | Docker API
-                                      v
-                              +---------------+
-                              | Docker Sandbox|
-                              |   User Code   |
-                              +---------------+
+                      │         │
+             MongoDB  │         │ BullMQ Enqueue ({ submissionId })
+                      │         ▼
+                      │    +---------+
+                      │    |  Redis  |
+                      │    | 7.2 Alp |
+                      │    +----+----+
+                      │         │
+                      │         │ Dequeue Job
+                      │         ▼
+                      │    +---------+
+                      │    | Worker  |
+                      │    | Daemon  |
+                      │    +----+----+
+                      │         │
+                      │         │ Internal Module Call
+                      │         ▼
+                      │    +------------------+
+                      │    | Execution Engine |
+                      │    +--------+---------+
+                      │             │
+                      │             │ Docker API Socket
+                      │             ▼
+                      │     +---------------+
+                      │     | Docker Sandbox|
+                      │     | codearena-    |
+                      │     |  sandbox:v1   |
+                      │     +---------------+
+                      │             │
+                      │ Update      │ Persist Verdict
+                      ▼ Result      ▼
+                 +-------------------+
+                 |      MongoDB      |
+                 +-------------------+
 ```
 
 ---

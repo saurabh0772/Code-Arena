@@ -6,7 +6,7 @@ const testCaseService = require('./test-case.service');
  */
 const createTestCase = async (req, res, next) => {
   try {
-    const testCase = await testCaseService.createTestCase(req.params.problemId, req.body);
+    const testCase = await testCaseService.createTestCase(req.params.problemId, req.body, req.user);
 
     res.status(201).json({
       success: true,
@@ -70,7 +70,7 @@ const getTestCase = async (req, res, next) => {
  */
 const updateTestCase = async (req, res, next) => {
   try {
-    const testCase = await testCaseService.updateTestCase(req.params.testCaseId, req.body);
+    const testCase = await testCaseService.updateTestCase(req.params.testCaseId, req.body, req.user);
 
     res.status(200).json({
       success: true,
@@ -89,7 +89,7 @@ const updateTestCase = async (req, res, next) => {
  */
 const deactivateTestCase = async (req, res, next) => {
   try {
-    const result = await testCaseService.deactivateTestCase(req.params.testCaseId);
+    const result = await testCaseService.deactivateTestCase(req.params.testCaseId, req.user);
 
     res.status(200).json({
       success: true,

@@ -27,27 +27,35 @@ The architecture focuses on:
 
 # 3. Architecture Overview
 
-CodeArena follows a **modular monolith architecture** for the MVP.
+CodeArena follows a **modular monolith architecture** with asynchronous submission processing via **Redis**, **BullMQ**, and a dedicated background **Worker** daemon.
 
 The major components are:
 
 ```text
-Frontend
-    |
-    v
-Backend
-    |
-    +-------------> MongoDB
-    |
-    +-------------> Execution Engine
-                         |
-                         v
-                    Docker Sandbox
+Frontend (React SPA)
+    │
+    ▼
+Backend API (Modular Monolith)
+    │
+    ├─── Persists ────▶ MongoDB
+    │
+    └─── Enqueues ───▶ Redis / BullMQ ({ submissionId })
+                           │
+                           ▼
+                        Worker Daemon
+                           │
+                           ▼
+                    Execution Engine Boundary
+                           │
+                           ▼
+                     Docker Sandbox (codearena-sandbox:v1)
 ```
 
-The Backend is the main application layer.
+The Backend is the main API and submission producer layer.
 
-The Execution Engine is separated because it handles untrusted user code.
+The Worker is the autonomous queue consumer that orchestrates execution.
+
+The Execution Engine is separated because it handles untrusted user code inside isolated, disposable Docker sandboxes.
 
 ---
 
@@ -329,54 +337,62 @@ MongoDB
 
 ---
 
-# 13. MVP Execution Model
+# 13. Asynchronous Execution Model (Current Architecture)
 
-The MVP uses synchronous execution for simplicity.
+CodeArena utilizes an asynchronous submission pipeline powered by Redis, BullMQ, and an autonomous Worker daemon.
 
 ```text
-POST /submissions
-       |
-       v
-Create Submission
-       |
-       v
-Execute Code
-       |
-       v
-Evaluate Tests
-       |
-       v
-Store Result
-       |
-       v
-Return Response
+Frontend
+   │
+   ▼ HTTP POST /api/v1/submissions
+Backend API
+   │
+   ▼ 1. Persist initial PENDING / QUEUED submission
+MongoDB Submission
+   │
+   ▼ 2. Push job { submissionId } to BullMQ
+Redis / BullMQ (submission-queue)
+   │
+   ▼ 3. Atomically claim job & transition to RUNNING
+Worker Daemon
+   │
+   ▼ 4. Retrieve submission & test cases
+Execution Engine
+   │
+   ▼ 5. Run untrusted code in ephemeral sandbox
+Docker Sandbox (codearena-sandbox:v1)
+   │
+   ▼ 6. Persist final verdict, runtime, memory & status (COMPLETED/FAILED)
+MongoDB Result
+   │
+   ▼ 7. Poll GET /api/v1/submissions/:id
+Frontend User
 ```
 
-This approach is acceptable for the initial version.
+This ensures HTTP request threads are never blocked by arbitrary compilation or execution times.
 
 ---
 
-# 14. Future Execution Model
+# 14. Execution Separation & Resilience
 
-As traffic increases, execution can become asynchronous.
+The background worker operates as an autonomous BullMQ consumer sharing the modular monolith code base, completely decoupled from HTTP request handling:
 
 ```text
-Backend
-   |
-   v
-Queue
-   |
-   v
-Worker
-   |
-   v
-Execution Engine
-   |
-   v
-Sandbox
+Backend API (Express) ─── Enqueues { submissionId } ───► Redis 7.2 (BullMQ)
+                                                               │
+                                                               ▼ Consumes
+                                                    Worker Daemon (BullMQ)
+                                                               │
+                                                               ▼
+                                                     Execution Engine
+                                                               │
+                                                               ▼
+                                                   Isolated Docker Sandbox
 ```
 
-The public API should remain independent of this internal change.
+- Transient infrastructure exceptions trigger automatic retry attempts with exponential backoff.
+- User code errors (compilation error, time limit exceeded, wrong answer) are completed application verdicts and do not trigger retries.
+- The public API remains stable, allowing the frontend to poll for state updates.
 
 ---
 

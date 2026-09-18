@@ -28,8 +28,8 @@ const submissionSchema = new mongoose.Schema(
     status: {
       type: String,
       required: true,
-      enum: ['SUBMITTED', 'RUNNING', 'COMPLETED'],
-      default: 'SUBMITTED'
+      enum: ['PENDING', 'QUEUED', 'RUNNING', 'COMPLETED', 'FAILED'],
+      default: 'PENDING'
     },
     verdict: {
       type: String,
@@ -60,6 +60,26 @@ const submissionSchema = new mongoose.Schema(
     totalTests: {
       type: Number,
       default: null
+    },
+    queuedAt: {
+      type: Date,
+      default: null
+    },
+    startedAt: {
+      type: Date,
+      default: null
+    },
+    completedAt: {
+      type: Date,
+      default: null
+    },
+    failedAt: {
+      type: Date,
+      default: null
+    },
+    errorMessage: {
+      type: String,
+      default: null
     }
   },
   {
@@ -81,24 +101,36 @@ const submissionSchema = new mongoose.Schema(
 submissionSchema.index({ userId: 1, createdAt: -1 });
 submissionSchema.index({ problemId: 1, createdAt: -1 });
 submissionSchema.index({ userId: 1, problemId: 1, createdAt: -1 });
+submissionSchema.index({ userId: 1, verdict: 1, createdAt: -1 });
+submissionSchema.index({ userId: 1, language: 1, createdAt: -1 });
 
 // Helper to return clean submission object
-submissionSchema.methods.toSafeObject = function () {
-  return {
+submissionSchema.methods.toSafeObject = function (options = { includeCode: true }) {
+  const safeObj = {
     id: this._id.toString(),
     userId: this.userId.toString(),
     problemId: this.problemId.toString(),
     language: this.language,
-    sourceCode: this.sourceCode,
     status: this.status,
     verdict: this.verdict,
     runtimeMs: this.runtimeMs,
     memoryKb: this.memoryKb,
     testsPassed: this.testsPassed,
     totalTests: this.totalTests,
+    queuedAt: this.queuedAt,
+    startedAt: this.startedAt,
+    completedAt: this.completedAt,
+    failedAt: this.failedAt,
+    errorMessage: this.errorMessage,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt
   };
+
+  if (!options || options.includeCode !== false) {
+    safeObj.sourceCode = this.sourceCode;
+  }
+
+  return safeObj;
 };
 
 const Submission = mongoose.model('Submission', submissionSchema);

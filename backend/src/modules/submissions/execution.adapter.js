@@ -49,6 +49,26 @@ async function executeTestCase({ language, sourceCode, testCase }) {
   }
 }
 
+/**
+ * Checks readiness of the Execution Engine runtime (e.g. Docker availability)
+ * @returns {Promise<boolean>}
+ */
+async function checkExecutionReadiness() {
+  if (!executionEngine) {
+    return { ready: false, mode: 'unknown', details: 'Execution engine module not loaded' };
+  }
+  if (process.env.EXECUTION_MODE === 'local') {
+    return { ready: true, mode: 'local' };
+  }
+  const dockerReady = await executionEngine.checkDockerAvailable();
+  return {
+    ready: !!dockerReady,
+    mode: 'docker',
+    details: dockerReady ? 'Docker sandbox daemon available' : 'Docker daemon not accessible'
+  };
+}
+
 module.exports = {
-  executeTestCase
+  executeTestCase,
+  checkExecutionReadiness
 };

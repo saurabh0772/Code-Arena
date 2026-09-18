@@ -7,6 +7,7 @@ const Submission = require('./submission.model');
 const TestCase = require('../test-cases/test-case.model');
 const executionAdapter = require('./execution.adapter');
 const AppError = require('../../utils/app-error');
+const logger = require('../../utils/logger');
 
 const SUPPORTED_LANGUAGES = ['CPP', 'PYTHON', 'JAVASCRIPT'];
 
@@ -30,6 +31,10 @@ async function executeSubmission(submissionId) {
     submission.testsPassed = 0;
     submission.totalTests = 0;
     await submission.save();
+    logger.warn('Submission rejected due to unsupported language', {
+      submissionId: submission._id.toString(),
+      language: submission.language
+    });
     return;
   }
 
@@ -46,6 +51,10 @@ async function executeSubmission(submissionId) {
     submission.testsPassed = 0;
     submission.totalTests = 0;
     await submission.save();
+    logger.warn('Submission aborted: problem has no active test cases', {
+      submissionId: submission._id.toString(),
+      problemId: submission.problemId.toString()
+    });
     throw new AppError(
       'This problem has no active test cases and is not ready for submissions.',
       422,
@@ -53,9 +62,19 @@ async function executeSubmission(submissionId) {
     );
   }
 
-  // Transition to RUNNING state
-  submission.status = 'RUNNING';
-  await submission.save();
+  // Transition to RUNNING state if not already set atomically
+  if (submission.status !== 'RUNNING') {
+    submission.status = 'RUNNING';
+    submission.startedAt = submission.startedAt || new Date();
+    await submission.save();
+  }
+
+  logger.info('submission.execution.started', {
+    submissionId: submission._id.toString(),
+    problemId: submission.problemId.toString(),
+    language: submission.language,
+    testCasesCount: testCases.length
+  });
 
   try {
     let testsPassed = 0;
@@ -86,7 +105,17 @@ async function executeSubmission(submissionId) {
         submission.totalTests = testCases.length;
         submission.runtimeMs = null;
         submission.memoryKb = null;
+        submission.completedAt = new Date();
         await submission.save();
+
+        logger.info('submission.execution.completed', {
+          submissionId: submission._id.toString(),
+          language: submission.language,
+          verdict: 'COMPILATION_ERROR',
+          testsPassed,
+          totalTests: testCases.length,
+          runtimeMs: null
+        });
         return;
       }
 
@@ -125,16 +154,26 @@ async function executeSubmission(submissionId) {
     submission.totalTests = testCases.length;
     submission.runtimeMs = totalRuntimeMs;
     submission.memoryKb = null;
+    submission.completedAt = new Date();
     await submission.save();
-  } catch (error) {
-    console.error(`Execution failure for submission ${submissionId}:`, error);
 
-    // Prevent submission from being permanently stuck in RUNNING state
-    submission.status = 'COMPLETED';
-    submission.verdict = 'RUNTIME_ERROR';
-    await submission.save().catch((saveErr) => {
-      console.error(`Failed to save error state for submission ${submissionId}:`, saveErr);
+    logger.info('submission.execution.completed', {
+      submissionId: submission._id.toString(),
+      language: submission.language,
+      verdict: finalVerdict,
+      testsPassed,
+      totalTests: testCases.length,
+      runtimeMs: totalRuntimeMs
     });
+
+    return submission;
+  } catch (error) {
+    logger.error('submission.execution.failed', {
+      submissionId: submissionId.toString(),
+      error: error.message
+    });
+
+    throw error;
   }
 }
 

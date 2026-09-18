@@ -52,7 +52,8 @@ const getMySubmissions = async (req, res, next) => {
     res.status(200).json({
       success: true,
       data: {
-        submissions: result.submissions
+        submissions: result.submissions,
+        pagination: result.pagination
       },
       pagination: result.pagination
     });

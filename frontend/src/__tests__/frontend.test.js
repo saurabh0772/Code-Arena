@@ -74,7 +74,7 @@ describe('Phase 9 — Frontend Unit & Integration Tests', () => {
                 problemId: capturedBody.problemId,
                 language: capturedBody.language,
                 sourceCode: capturedBody.sourceCode,
-                status: 'SUBMITTED',
+                status: 'QUEUED',
                 verdict: 'PENDING'
               }
             }

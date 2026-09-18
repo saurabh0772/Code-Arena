@@ -65,12 +65,19 @@ export function getVerdictConfig(verdict) {
       };
     case 'PENDING':
     case 'RUNNING':
-    case 'SUBMITTED':
+    case 'QUEUED':
       return {
         label: verdict.charAt(0) + verdict.slice(1).toLowerCase(),
         color: 'text-blue-400',
         bg: 'bg-blue-500/10 border-blue-500/30',
         dot: 'bg-blue-400'
+      };
+    case 'FAILED':
+      return {
+        label: 'Failed',
+        color: 'text-rose-400',
+        bg: 'bg-rose-500/10 border-rose-500/30',
+        dot: 'bg-rose-400'
       };
     default:
       return {

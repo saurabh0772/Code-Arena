@@ -22,15 +22,22 @@ export function SubmissionHistory() {
   const [problemsMap, setProblemsMap] = useState({});
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingCode, setIsLoadingCode] = useState(false);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [languageFilter, setLanguageFilter] = useState('');
+  const [verdictFilter, setVerdictFilter] = useState('');
 
-  async function loadSubmissions(page = 1) {
+  async function loadSubmissions(page = 1, lang = languageFilter, verd = verdictFilter) {
     setIsLoading(true);
     setError(null);
     try {
+      const params = { page, limit: 20 };
+      if (lang) params.language = lang;
+      if (verd) params.verdict = verd;
+
       const [subData, probList] = await Promise.all([
-        submissionService.getMySubmissions({ page, limit: 20 }),
+        submissionService.getMySubmissions(params),
         problemService.getProblems().catch(() => [])
       ]);
 
@@ -54,7 +61,35 @@ export function SubmissionHistory() {
     loadSubmissions(1);
   }, []);
 
+  const handleLanguageChange = (e) => {
+    const val = e.target.value;
+    setLanguageFilter(val);
+    loadSubmissions(1, val, verdictFilter);
+  };
+
+  const handleVerdictChange = (e) => {
+    const val = e.target.value;
+    setVerdictFilter(val);
+    loadSubmissions(1, languageFilter, val);
+  };
+
+  const handleOpenSubmission = async (sub) => {
+    setSelectedSubmission(sub);
+    if (!sub.sourceCode) {
+      setIsLoadingCode(true);
+      try {
+        const full = await submissionService.getSubmissionById(sub.id);
+        setSelectedSubmission(full);
+      } catch (err) {
+        console.error('Failed to load submission code:', err);
+      } finally {
+        setIsLoadingCode(false);
+      }
+    }
+  };
+
   const handleCopy = (code) => {
+    if (!code) return;
     navigator.clipboard.writeText(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -63,7 +98,7 @@ export function SubmissionHistory() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white font-mono">
             Submission History
@@ -82,6 +117,40 @@ export function SubmissionHistory() {
           <RefreshCw className={`w-4 h-4 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
+      </div>
+
+      {/* Filters Bar */}
+      <div className="flex flex-wrap items-center gap-3 mb-6 bg-surface/50 p-3 rounded-xl border border-border/40">
+        <div className="flex items-center space-x-2 text-xs text-slate-400">
+          <span>Language:</span>
+          <select
+            value={languageFilter}
+            onChange={handleLanguageChange}
+            className="bg-slate-900/90 border border-border/80 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:ring-1 focus:ring-primary focus:outline-none"
+          >
+            <option value="">All Languages</option>
+            <option value="CPP">C++ (CPP)</option>
+            <option value="PYTHON">Python</option>
+            <option value="JAVASCRIPT">JavaScript</option>
+          </select>
+        </div>
+
+        <div className="flex items-center space-x-2 text-xs text-slate-400">
+          <span>Verdict:</span>
+          <select
+            value={verdictFilter}
+            onChange={handleVerdictChange}
+            className="bg-slate-900/90 border border-border/80 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:ring-1 focus:ring-primary focus:outline-none"
+          >
+            <option value="">All Verdicts</option>
+            <option value="ACCEPTED">Accepted</option>
+            <option value="WRONG_ANSWER">Wrong Answer</option>
+            <option value="TIME_LIMIT_EXCEEDED">Time Limit Exceeded</option>
+            <option value="MEMORY_LIMIT_EXCEEDED">Memory Limit Exceeded</option>
+            <option value="COMPILATION_ERROR">Compilation Error</option>
+            <option value="RUNTIME_ERROR">Runtime Error</option>
+          </select>
+        </div>
       </div>
 
       {/* Error state */}
@@ -132,7 +201,7 @@ export function SubmissionHistory() {
                 return (
                   <TableRow
                     key={sub.id}
-                    onClick={() => setSelectedSubmission(sub)}
+                    onClick={() => handleOpenSubmission(sub)}
                   >
                     <TableCell className="font-mono text-xs text-slate-500">
                       #{sub.id?.slice(-6)}
@@ -177,7 +246,7 @@ export function SubmissionHistory() {
                         className="p-1.5 text-slate-400 hover:text-white"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedSubmission(sub);
+                          handleOpenSubmission(sub);
                         }}
                         title="View Code & Metrics"
                       >
@@ -267,19 +336,32 @@ export function SubmissionHistory() {
               <span className="text-xs font-mono font-semibold text-slate-300 uppercase">
                 Submitted Source Code
               </span>
-              <button
-                onClick={() => handleCopy(selectedSubmission.sourceCode)}
-                className="text-xs text-slate-400 hover:text-white flex items-center space-x-1 p-1 rounded hover:bg-slate-800"
-              >
-                {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copied ? 'Copied' : 'Copy Code'}</span>
-              </button>
+              {selectedSubmission.sourceCode && (
+                <button
+                  onClick={() => handleCopy(selectedSubmission.sourceCode)}
+                  className="text-xs text-slate-400 hover:text-white flex items-center space-x-1 p-1 rounded hover:bg-slate-800"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copied ? 'Copied' : 'Copy Code'}</span>
+                </button>
+              )}
             </div>
 
             {/* Source Code Viewer */}
-            <pre className="bg-[#0b0f19] p-4 rounded-lg border border-border/60 text-xs font-mono text-slate-200 overflow-x-auto leading-relaxed max-h-96 selection:bg-indigo-600/40">
-              <code>{selectedSubmission.sourceCode}</code>
-            </pre>
+            {isLoadingCode ? (
+              <div className="bg-[#0b0f19] p-8 rounded-lg border border-border/60 flex items-center justify-center space-x-2 text-slate-400 text-xs font-mono">
+                <div className="w-4 h-4 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
+                <span>Loading source code...</span>
+              </div>
+            ) : selectedSubmission.sourceCode ? (
+              <pre className="bg-[#0b0f19] p-4 rounded-lg border border-border/60 text-xs font-mono text-slate-200 overflow-x-auto leading-relaxed max-h-96 selection:bg-indigo-600/40">
+                <code>{selectedSubmission.sourceCode}</code>
+              </pre>
+            ) : (
+              <div className="bg-[#0b0f19] p-6 rounded-lg border border-border/60 text-xs text-slate-400 font-mono text-center">
+                Source code not available for this submission.
+              </div>
+            )}
           </div>
         </Modal>
       )}
