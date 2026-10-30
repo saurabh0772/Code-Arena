@@ -76,17 +76,15 @@
 - **Stale Ownership Recovery**: Atomic recovery of orphaned RUNNING submissions from crashed workers after 30s.
 - **Backend Docker Isolation**: Backend service strictly does NOT mount `/var/run/docker.sock`.
 
-### Phase 18 — Advanced Infrastructure [IMPLEMENTED & TESTED LOCALLY]
-- **Declarative Kubernetes Architecture**: Kustomize-based manifests (`k8s/base/`, `k8s/overlays/local/`, `k8s/overlays/production/`) orchestrating stateless Backend API replicas, autonomous Worker daemons (using `codearena-backend:latest`), and React Frontend SPA.
-- **Secrets Management**: Base kustomization strictly excludes template secrets (`secrets.example.yaml`); local overlay uses non-sensitive demonstration secrets; production overlay references External Secrets Operator (ESO).
-- **Docker Socket Security Boundary**: Backend API maintains zero Docker daemon access. Workers mount Docker as an explicitly designated security-sensitive capability isolated to dedicated execution node pools in production (`requiredDuringSchedulingIgnoredDuringExecution` with `dedicated=codearena-worker:NoSchedule`).
-- **Dual-Signal Autoscaling**: Backend API autoscales on CPU (70%) and Memory (80%) via HPA; Worker tier autoscales on queue backlog depth via KEDA (`ScaledObject` targeting pinned BullMQ v6 Redis key `bull:submission-execution:wait`).
-- **Network Segmentation & Least-Privilege Policies**: Least-privilege `NetworkPolicy` resources with default-deny rules and explicit CoreDNS (`UDP/TCP 53`) egress. Backend ingress is restricted with explicit `from:` selectors; production datastore egress is restricted to private cloud CIDRs without `0.0.0.0/0`.
-- **Production Observability & Prometheus Histograms**: `GET /metrics` exporter with normalized route templates, true latency histograms (`_bucket`, `_sum`, `_count`), bounded non-blocking execution (<500ms when Redis is down), and zero high-cardinality labels, paired with a curated Grafana dashboard calculating P95/P99 latency.
+### Phase 18 — Advanced Infrastructure [COMPLETE]
+- **Horizontally Scalable Architecture**: Docker Compose multi-container architecture supporting horizontal scaling of backend API instances (`docker compose up -d --scale backend=N`) and worker daemons (`docker compose up -d --scale worker=N`).
+- **Nginx Reverse Proxy & Load Balancer**: Dynamic Docker DNS upstream discovery (`resolver 127.0.0.11 valid=5s`) and health-aware failover (`proxy_next_upstream`).
+- **Docker Socket Security Boundary**: Backend API maintains zero Docker daemon access. Workers mount Docker as an explicitly designated security-sensitive capability isolated to worker processes.
+- **Production Observability & Prometheus Histograms**: `GET /metrics` exporter with normalized route templates, true latency histograms (`_bucket`, `_sum`, `_count`), bounded non-blocking execution (<500ms when Redis is down), and zero high-cardinality labels.
 - **W3C Trace Context Propagation**: Propagates `traceparent` across HTTP → Queue → Worker → Execution while strictly preserving the BullMQ business payload contract `{ submissionId }`.
 - **MongoDB HA Configuration**: Supports `replicaSet`, `readPreference`, and `retryWrites` with fail-fast validation without silent downgrade to standalone.
 - **Sandbox Runtime Abstraction**: Introduces `ExecutionRuntime` contract with active `DockerRuntime` and documented experimental stubs for `GVisorRuntime` and `FirecrackerRuntime`.
-- **Strict Verification Semantics**: Verified via automated 6-tier verification script (`scripts/verify-phase18.js`) and comprehensive regression suite (`tests/phase18.test.js`).
+- **Regression Validation**: Validated via automated regression suite (`tests/phase18.test.js`) and Docker Compose configuration verification.
 
 ---
 

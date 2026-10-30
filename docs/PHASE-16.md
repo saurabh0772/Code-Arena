@@ -381,7 +381,7 @@ The Phase 16 implementation adheres to distributed systems best practices and ex
 > [!IMPORTANT]
 > **Scope & Reliability Limitations**:
 > 1. **Application-Level Foundation, Not Cloud Autoscaling**:
->    Phase 16 establishes the application-level foundation for scaling by making backend instances stateless and shared-state aware. It does not implement automated orchestration, cloud load balancers, or autoscaling metrics (e.g. Kubernetes HPA).
+>    Phase 16 establishes the application-level foundation for scaling by making backend instances stateless and shared-state aware. It does not implement automated cloud autoscalers or external orchestrators.
 > 2. **No Guaranteed Request Preservation During Sudden Hard Crash**:
 >    If a backend instance experiences a hard kill (`SIGKILL`, host power loss) mid-flight, TCP connections drop. While Nginx retries idempotent GET requests on connection error (`proxy_next_upstream`), in-flight POST operations cannot be automatically safely retried without idempotency keys.
 > 3. **Single MongoDB & Redis Nodes**:
@@ -396,4 +396,4 @@ The Phase 16 implementation adheres to distributed systems best practices and ex
 ## 17. Future Work
 
 - **Phase 17 — Distributed Execution Architecture**: Decoupling the execution engine into standalone remote execution agents across heterogeneous host nodes.
-- **Phase 18 — Advanced Infrastructure**: Kubernetes deployment, Horizontal Pod Autoscaling (HPA), MongoDB Replica Sets, Redis Sentinel, and production observability platforms.
+- **Phase 18 — Advanced Infrastructure**: Production observability, MongoDB Replica Set configuration, W3C distributed tracing, and sandbox runtime abstractions.

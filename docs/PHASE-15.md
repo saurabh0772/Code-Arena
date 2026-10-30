@@ -313,7 +313,7 @@ The Phase 15 implementation adheres to rigorous distributed systems semantics an
 3. **No Global Scheduler / Capacity Balancer**:
    - Phase 15 does not implement global CPU/RAM-aware scheduling algorithms or fair distribution guarantees across workers.
 4. **No Distributed Orchestrator**:
-   - Scaling is managed via Docker Compose (`--scale worker=N`). Kubernetes, auto-scaling horizontal pod autoscalers (HPA), and nomad clusters belong to future infrastructure phases.
+   - Scaling is managed via Docker Compose (`--scale worker=N`). Dynamic auto-scaling and cloud orchestrator clusters are intentionally excluded.
 5. **No Worker Registry Database**:
    - Worker IDs are ephemeral runtime identifiers for logs and diagnostics. Phase 15 intentionally avoids building a database-backed worker registry or heartbeat consensus system.
 

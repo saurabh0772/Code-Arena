@@ -69,8 +69,8 @@ jobs:
           cd backend
           npm audit --audit-level=critical || echo "ℹ Informational audit: dependency warnings detected; non-blocking in CI"
 
-  build-and-validate-k8s:
-    name: Build Images & Validate Kubernetes
+  build-docker-images:
+    name: Build Docker Images & Validate Compose
     needs: validate-and-test
     runs-on: ubuntu-latest
 
@@ -103,11 +103,7 @@ jobs:
             codearena-frontend:${{ github.sha }}
             codearena-frontend:latest
 
-      # Level 2 Kustomize overlay rendering: proves YAML parses and overlay patches render cleanly.
-      # Note: This is Level 2 Kustomize rendering, distinct from Level 3 Kubernetes API schema validation.
-      - name: Render Kubernetes Overlays (Level 2 Kustomize Rendering)
+      - name: Validate Docker Compose Configuration
         run: |
-          kubectl kustomize k8s/base > /dev/null
-          kubectl kustomize k8s/overlays/production > /dev/null
-          kubectl kustomize k8s/overlays/local > /dev/null
-          echo "✔ Kubernetes Level 2 Kustomize rendering validated successfully (base, local, production)."
+          JWT_SECRET=ci-dummy-jwt-secret-at-least-32-chars-long! docker compose config > /dev/null
+          echo "✔ Docker Compose configuration validated successfully."

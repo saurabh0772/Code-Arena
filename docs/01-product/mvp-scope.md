@@ -442,8 +442,8 @@ These changes should be introduced only when justified by actual requirements.
 | Worker Pool | Future |
 | Contests | Future |
 | Leaderboards | Future |
-| Microservices | Future |
-| Kubernetes | Future |
+| Microservices | Out of Scope |
+| Kubernetes | Out of Scope |
 
 ---
 

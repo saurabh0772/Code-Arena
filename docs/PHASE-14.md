@@ -33,7 +33,7 @@ Phase 17    ──▶ Distributed Execution Architecture [FUTURE]
 Phase 18    ──▶ Advanced Infrastructure [FUTURE]
 ```
 
-> **Scope Guard**: Phase 14 establishes the robust single-worker daemon process architecture. It does NOT implement multiple worker replicas, dynamic worker auto-scaling, distributed worker discovery, Kubernetes operators, or message brokers like Kafka/RabbitMQ. Those capabilities belong strictly to **Phase 15+**.
+> **Scope Guard**: Phase 14 establishes the robust single-worker daemon process architecture. It does NOT implement multiple worker replicas, dynamic worker auto-scaling, distributed worker discovery, external orchestrators, or message brokers like Kafka/RabbitMQ. Those capabilities belong strictly to **Phase 15+**.
 
 ---
 
@@ -371,4 +371,4 @@ To maintain architectural focus, Phase 14 enforces the following boundary:
 - **Phase 15 (Multiple Workers / Concurrency)**: Will address multiple worker container replicas, dynamic concurrency tuning, queue priority partitioning, and worker health heartbeats.
 - **Phase 16 (Horizontal Scaling)**: Will introduce container auto-scaling and Redis clustering.
 - **Phase 17 (Distributed Execution)**: Will decouple Docker sandboxes across remote compute nodes via gRPC / worker agents.
-- **Excluded Technologies**: Kafka, RabbitMQ, Celery, Kubernetes Operators, and Nomad are intentionally excluded from Phase 14.
+- **Excluded Technologies**: Kafka, RabbitMQ, Celery, and Nomad are intentionally excluded from Phase 14.

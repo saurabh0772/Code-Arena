@@ -30,7 +30,7 @@ Phase 17    ──▶ Distributed Execution Architecture [FUTURE]
 Phase 18    ──▶ Advanced Infrastructure [FUTURE]
 ```
 
-> **Scope Guard**: Phase 13 does not introduce multi-worker clustering, dynamic worker discovery, Kubernetes operators, or distributed schedulers. These concerns belong strictly to **Phase 14+**.
+> **Scope Guard**: Phase 13 does not introduce multi-worker clustering, dynamic worker discovery, external orchestrators, or distributed schedulers. These concerns belong strictly to **Phase 14+**.
 
 ---
 
